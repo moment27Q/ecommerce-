@@ -1,0 +1,197 @@
+@import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 0 0% 20%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 20%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 20%;
+    --primary: 25 35% 43%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 20 30% 94%;
+    --secondary-foreground: 0 0% 20%;
+    --muted: 20 30% 94%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 25 30% 67%;
+    --accent-foreground: 0 0% 20%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 25 30% 75%;
+    --input: 25 30% 90%;
+    --ring: 25 35% 43%;
+    --radius: 0.5rem;
+    
+    /* JJ construccion - colores del diseño */
+    --dark-green: #1e5631;
+    --orange-accent: #e85d04;
+    --light-green-badge: #2d9d5f;
+    --light-blue-badge: #3b82c6;
+    --gray-bg: #f8f8f8;
+    --dark: #333333;
+    --success: #2d9d5f;
+    --warning: #e85d04;
+    --error: #ef4444;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Open Sans', sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 700;
+  }
+  
+  p, span, a, li {
+    font-family: 'Open Sans', sans-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-[#333] text-white uppercase tracking-widest px-6 py-3 rounded-lg font-bold text-sm transition-all duration-300 hover:opacity-90;
+  }
+  
+  .btn-secondary {
+    @apply border-2 border-[#333] text-[#333] uppercase tracking-widest px-6 py-3 rounded-lg font-bold text-sm transition-all duration-300 hover:bg-[#333] hover:text-white;
+  }
+  
+  .section-padding {
+    @apply py-20 px-[5%];
+  }
+  
+  .container-custom {
+    @apply max-w-[80rem] mx-auto px-[5%];
+  }
+  
+  .card-product {
+    @apply bg-white rounded-lg p-4 shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1 border border-gray-100;
+  }
+  
+  .input-custom {
+    @apply bg-[#f8f8f8] border border-transparent rounded-lg h-11 px-4 transition-all duration-300 focus:border-[#1e5631] focus:outline-none;
+  }
+  
+  .nav-link {
+    @apply text-[#333] font-normal text-sm px-4 py-2 transition-colors duration-300 hover:text-[#1e5631];
+  }
+  
+  .nav-link.active {
+    @apply text-[#333] font-semibold border-b-2 border-[#333];
+  }
+}
+
+@layer utilities {
+  .text-sienna {
+    color: var(--sienna);
+  }
+  
+  .bg-sienna {
+    background-color: var(--sienna);
+  }
+  
+  .bg-seashell {
+    background-color: var(--seashell);
+  }
+  
+  .border-tan {
+    border-color: var(--tan);
+  }
+  
+  .text-tan {
+    color: var(--tan);
+  }
+  
+  .animate-fadeIn {
+    animation: fadeIn 1s cubic-bezier(0.165, 0.840, 0.440, 1) forwards;
+  }
+  
+  .animate-slideInBottom {
+    animation: slideInBottom 1s cubic-bezier(0.165, 0.840, 0.440, 1) forwards;
+  }
+  
+  .animate-slideInLeft {
+    animation: slideInLeft 1s cubic-bezier(0.165, 0.840, 0.440, 1) forwards;
+  }
+  
+  .animate-slideInRight {
+    animation: slideInRight 1s cubic-bezier(0.165, 0.840, 0.440, 1) forwards;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInBottom {
+  from {
+    opacity: 0;
+    transform: translateY(60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(60px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f8f8f8;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e5631;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #164a28;
+}
