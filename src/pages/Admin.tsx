@@ -22,6 +22,8 @@ import {
   MoreVertical,
   CreditCard,
   Info,
+  Percent,
+  Upload,
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useProductsStore, type ProductFormData } from '@/store/productsStore';
@@ -51,7 +53,15 @@ import {
 } from '@/components/ui/alert-dialog';
 import type { Order, Product, ProductTag } from '@/types';
 
-type AdminSection = 'dashboard' | 'orders' | 'products' | 'carousel';
+type AdminSection = 'dashboard' | 'orders' | 'products' | 'carousel' | 'offers';
+
+export interface Offer {
+  id: number;
+  productId: string;
+  discountPercent: number;
+  validUntil?: string;
+  product: Product;
+}
 
 function formatOrderDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -105,7 +115,10 @@ export function Admin() {
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [productForm, setProductForm] = useState<ProductFormData>(emptyProductForm);
   const [productSaving, setProductSaving] = useState(false);
+  const [productError, setProductError] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [productDeleteInProgress, setProductDeleteInProgress] = useState(false);
+  const [productDeleteError, setProductDeleteError] = useState<string | null>(null);
 
   const [carouselSlides, setCarouselSlides] = useState<CarouselSlide[]>([]);
   const [carouselLoading, setCarouselLoading] = useState(false);
@@ -114,6 +127,15 @@ export function Admin() {
   const [slideForm, setSlideForm] = useState({ image: '', alt: '' });
   const [slideSaving, setSlideSaving] = useState(false);
   const [slideToDelete, setSlideToDelete] = useState<CarouselSlide | null>(null);
+
+  const [offers, setOffers] = useState<Offer[]>([]);
+  const [offersLoading, setOffersLoading] = useState(false);
+  const [offerDialogOpen, setOfferDialogOpen] = useState(false);
+  const [editingOfferId, setEditingOfferId] = useState<number | null>(null);
+  const [offerForm, setOfferForm] = useState({ productId: '', discountPercent: 10, validUntil: '' });
+  const [offerError, setOfferError] = useState<string | null>(null);
+  const [offerSaving, setOfferSaving] = useState(false);
+  const [offerToDelete, setOfferToDelete] = useState<Offer | null>(null);
 
   const loadOrders = useCallback(async () => {
     setOrdersLoading(true);
@@ -178,6 +200,32 @@ export function Admin() {
     if (section === 'carousel') loadCarousel();
   }, [section, loadCarousel]);
 
+  const loadOffers = useCallback(async () => {
+    setOffersLoading(true);
+    try {
+      const res = await fetchWithAuth(`${API}/offers/all`);
+      if (res.status === 401) {
+        logout();
+        navigate('/login');
+        return;
+      }
+      if (!res.ok) throw new Error('Error al cargar ofertas');
+      const data = await res.json();
+      setOffers(data);
+    } catch {
+      setOffers([]);
+    } finally {
+      setOffersLoading(false);
+    }
+  }, [logout, navigate]);
+
+  useEffect(() => {
+    if (section === 'offers') {
+      loadOffers();
+      loadProducts();
+    }
+  }, [section, loadOffers, loadProducts]);
+
   const filteredOrders = orders
     .filter((order) => {
       const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
@@ -224,6 +272,16 @@ export function Admin() {
     return labels[method];
   };
 
+  const now = Date.now();
+  const ms30 = 30 * 24 * 60 * 60 * 1000;
+  const last30Start = now - ms30;
+  const prev30Start = now - 2 * ms30;
+  const inLast30 = (o: Order) => new Date(o.createdAt).getTime() >= last30Start;
+  const inPrev30 = (o: Order) => {
+    const t = new Date(o.createdAt).getTime();
+    return t >= prev30Start && t < last30Start;
+  };
+
   const stats = {
     total: orders.length,
     pending: orders.filter((o) => o.status === 'pending').length,
@@ -235,14 +293,44 @@ export function Admin() {
       .reduce((sum, o) => sum + o.total, 0),
   };
 
+  const last30 = {
+    total: orders.filter(inLast30).length,
+    pending: orders.filter((o) => inLast30(o) && o.status === 'pending').length,
+    shippedDelivered: orders.filter((o) => inLast30(o) && (o.status === 'shipped' || o.status === 'delivered')).length,
+    revenue: orders
+      .filter((o) => inLast30(o) && o.status !== 'cancelled')
+      .reduce((sum, o) => sum + o.total, 0),
+  };
+  const prev30 = {
+    total: orders.filter(inPrev30).length,
+    pending: orders.filter((o) => inPrev30(o) && o.status === 'pending').length,
+    shippedDelivered: orders.filter((o) => inPrev30(o) && (o.status === 'shipped' || o.status === 'delivered')).length,
+    revenue: orders
+      .filter((o) => inPrev30(o) && o.status !== 'cancelled')
+      .reduce((sum, o) => sum + o.total, 0),
+  };
+
+  const pct = (curr: number, prev: number) => {
+    if (prev === 0) return curr === 0 ? 0 : 100;
+    return Math.round(((curr - prev) / prev) * 100);
+  };
+  const pctTotal = pct(last30.total, prev30.total);
+  const pctPending = pct(last30.pending, prev30.pending);
+  const pctShipped = pct(last30.shippedDelivered, prev30.shippedDelivered);
+  const pctRevenue = pct(last30.revenue, prev30.revenue);
+
+  const fmtPct = (n: number) => (n === 0 ? '0%' : n > 0 ? `+${n}%` : `${n}%`);
+
   const openAddProduct = () => {
     setEditingProductId(null);
     setProductForm(emptyProductForm);
+    setProductError(null);
     setProductDialogOpen(true);
   };
 
   const openEditProduct = (product: Product) => {
     setEditingProductId(product.id);
+    setProductError(null);
     setProductForm({
       name: product.name,
       price: product.price,
@@ -258,12 +346,22 @@ export function Admin() {
   };
 
   const handleSaveProduct = async () => {
-    if (!productForm.name.trim() || productForm.price < 0 || productForm.stock < 0) return;
+    if (!productForm.name.trim() || productForm.price < 0 || productForm.stock < 0) {
+      setProductError('Completa nombre, precio y stock.');
+      return;
+    }
+    if (!productForm.category.trim()) {
+      setProductError('Selecciona una categoría.');
+      return;
+    }
+    setProductError(null);
     setProductSaving(true);
     try {
+      const headers = { 'Content-Type': 'application/json' };
       if (editingProductId) {
         const res = await fetchWithAuth(`${API}/products/${editingProductId}`, {
           method: 'PUT',
+          headers,
           body: JSON.stringify(productForm),
         });
         if (res.status === 401) {
@@ -271,10 +369,23 @@ export function Admin() {
           navigate('/login');
           return;
         }
-        if (!res.ok) throw new Error('Error al actualizar');
+        if (!res.ok) {
+          const text = await res.text();
+          if (text.includes('Cannot POST') || text.includes('Cannot PUT')) {
+            throw new Error('El servidor no tiene la ruta. ¿Está corriendo el backend? (carpeta server → npm run start)');
+          }
+          let data: { error?: string } = {};
+          try {
+            data = JSON.parse(text);
+          } catch {
+            throw new Error(text || `Error ${res.status}`);
+          }
+          throw new Error((data as { error?: string }).error || 'Error al actualizar');
+        }
       } else {
         const res = await fetchWithAuth(`${API}/products`, {
           method: 'POST',
+          headers,
           body: JSON.stringify(productForm),
         });
         if (res.status === 401) {
@@ -282,7 +393,22 @@ export function Admin() {
           navigate('/login');
           return;
         }
-        if (!res.ok) throw new Error('Error al crear');
+        if (!res.ok) {
+          const text = await res.text();
+          if (text.includes('Cannot POST') || text.includes('Cannot PUT')) {
+            throw new Error('El servidor no tiene la ruta. ¿Está corriendo el backend? (carpeta server → npm run start)');
+          }
+          let data: { error?: string } = {};
+          try {
+            data = JSON.parse(text);
+          } catch {
+            if (res.status === 413) throw new Error('La imagen es demasiado grande. Prueba con una imagen más pequeña.');
+            throw new Error(text || `Error ${res.status}`);
+          }
+          const msg = (data as { error?: string }).error;
+          if (res.status === 400 && !msg) throw new Error('Faltan campos requeridos: nombre, precio, categoría y stock.');
+          throw new Error(msg || 'Error al crear el producto');
+        }
       }
       setProductDialogOpen(false);
       setProductForm(emptyProductForm);
@@ -290,18 +416,22 @@ export function Admin() {
       await loadProducts();
       fetchProducts();
     } catch (e) {
-      console.error(e);
+      setProductError(e instanceof Error ? e.message : 'Error al guardar');
     } finally {
       setProductSaving(false);
     }
   };
 
   const handleDeleteProduct = (product: Product) => {
+    setProductDeleteError(null);
     setProductToDelete(product);
   };
 
-  const confirmDeleteProduct = async () => {
+  const confirmDeleteProduct = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
     if (!productToDelete) return;
+    setProductDeleteInProgress(true);
+    setProductDeleteError(null);
     try {
       const res = await fetchWithAuth(`${API}/products/${productToDelete.id}`, { method: 'DELETE' });
       if (res.status === 401) {
@@ -309,12 +439,25 @@ export function Admin() {
         navigate('/login');
         return;
       }
-      if (!res.ok) throw new Error('Error al eliminar');
+      if (!res.ok) {
+        const text = await res.text();
+        let msg = 'Error al eliminar';
+        try {
+          const json = JSON.parse(text);
+          if (json?.error) msg = json.error;
+        } catch {
+          if (text) msg = text;
+        }
+        throw new Error(msg);
+      }
       setProductToDelete(null);
       await loadProducts();
       fetchProducts();
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
+      setProductDeleteError(err instanceof Error ? err.message : 'Error al eliminar');
+    } finally {
+      setProductDeleteInProgress(false);
     }
   };
 
@@ -409,6 +552,105 @@ export function Admin() {
     }
   };
 
+  const openAddOffer = async () => {
+    setEditingOfferId(null);
+    setOfferForm({ productId: '', discountPercent: 10, validUntil: '' });
+    setOfferError(null);
+    if (products.length === 0) await loadProducts();
+    setOfferDialogOpen(true);
+  };
+
+  const openEditOffer = (offer: Offer) => {
+    setEditingOfferId(offer.id);
+    setOfferForm({
+      productId: offer.productId,
+      discountPercent: offer.discountPercent,
+      validUntil: offer.validUntil || '',
+    });
+    setOfferError(null);
+    setOfferDialogOpen(true);
+  };
+
+  const handleSaveOffer = async () => {
+    if (!offerForm.productId.trim() || offerForm.discountPercent < 0 || offerForm.discountPercent > 100) return;
+    setOfferSaving(true);
+    setOfferError(null);
+    try {
+      if (editingOfferId != null) {
+        const res = await fetchWithAuth(`${API}/offers/${editingOfferId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ discountPercent: offerForm.discountPercent, validUntil: offerForm.validUntil.trim() || null }),
+        });
+        if (res.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Error al actualizar');
+        }
+      } else {
+        const res = await fetchWithAuth(`${API}/offers`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productId: offerForm.productId.trim(),
+            discountPercent: Number(offerForm.discountPercent),
+            validUntil: offerForm.validUntil.trim() ? offerForm.validUntil.trim() : null,
+          }),
+        });
+        if (res.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        if (!res.ok) {
+          const text = await res.text();
+          if (text.includes('Cannot POST') || text.includes('Cannot GET')) {
+            throw new Error('La ruta /api/offers no existe en el servidor. Ejecuta el backend de este proyecto: en la carpeta "server" ejecuta "npm run start" (puerto 3001).');
+          }
+          let data: { error?: string } = {};
+          try {
+            data = JSON.parse(text);
+          } catch {
+            if (res.status >= 500 || res.status === 502) throw new Error('Servidor no disponible. ¿Está corriendo el backend? (carpeta server → npm run start)');
+            throw new Error(text || `Error ${res.status}`);
+          }
+          throw new Error(typeof data.error === 'string' ? data.error : `Error ${res.status}`);
+        }
+      }
+      setOfferDialogOpen(false);
+      setOfferForm({ productId: '', discountPercent: 10, validUntil: '' });
+      setEditingOfferId(null);
+      setOfferError(null);
+      await loadOffers();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Error al guardar';
+      setOfferError(message);
+    } finally {
+      setOfferSaving(false);
+    }
+  };
+
+  const confirmDeleteOffer = async () => {
+    if (!offerToDelete) return;
+    try {
+      const res = await fetchWithAuth(`${API}/offers/${offerToDelete.id}`, { method: 'DELETE' });
+      if (res.status === 401) {
+        logout();
+        navigate('/login');
+        return;
+      }
+      if (!res.ok) throw new Error('Error al eliminar');
+      setOfferToDelete(null);
+      await loadOffers();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#f8f8f8] pt-[8.75rem]">
       <div className="flex">
@@ -457,6 +699,16 @@ export function Admin() {
                 <ImageIcon className="w-5 h-5 shrink-0" />
                 <span className="min-w-0 flex-1">Carrusel</span>
               </button>
+              <button
+                onClick={() => setSection('offers')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
+                  section === 'offers' ? 'bg-white/20' : 'hover:bg-white/10'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
+                <Percent className="w-5 h-5 shrink-0" />
+                <span className="min-w-0 flex-1">Ofertas</span>
+              </button>
             </nav>
             <div className="mt-8 pt-6 border-t border-white/20">
               <button
@@ -501,7 +753,7 @@ export function Admin() {
                     <div>
                       <p className="text-gray-500 text-sm mb-1">Total Pedidos</p>
                       <p className="text-2xl font-bold text-[#333]">{stats.total}</p>
-                      <p className="text-xs text-blue-600 font-medium mt-2">+12%</p>
+                      <p className={`text-xs font-medium mt-2 ${pctTotal >= 0 ? 'text-blue-600' : 'text-red-600'}`}>{fmtPct(pctTotal)}</p>
                     </div>
                     <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
                       <ShoppingBag className="w-5 h-5 text-blue-600" />
@@ -513,7 +765,7 @@ export function Admin() {
                     <div>
                       <p className="text-gray-500 text-sm mb-1">Pendientes</p>
                       <p className="text-2xl font-bold text-[#333]">{stats.pending}</p>
-                      <p className="text-xs text-amber-600 font-medium mt-2">+5%</p>
+                      <p className={`text-xs font-medium mt-2 ${pctPending >= 0 ? 'text-amber-600' : 'text-red-600'}`}>{fmtPct(pctPending)}</p>
                     </div>
                     <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
                       <Package className="w-5 h-5 text-amber-600" />
@@ -525,7 +777,7 @@ export function Admin() {
                     <div>
                       <p className="text-gray-500 text-sm mb-1">Enviados</p>
                       <p className="text-2xl font-bold text-[#333]">{stats.shipped + stats.delivered}</p>
-                      <p className="text-xs text-green-600 font-medium mt-2">+18%</p>
+                      <p className={`text-xs font-medium mt-2 ${pctShipped >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmtPct(pctShipped)}</p>
                     </div>
                     <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
                       <Truck className="w-5 h-5 text-green-600" />
@@ -539,7 +791,7 @@ export function Admin() {
                       <p className="text-2xl font-bold text-[#333]">
                         S/ {stats.totalRevenue.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
                       </p>
-                      <p className="text-xs text-purple-600 font-medium mt-2">+24%</p>
+                      <p className={`text-xs font-medium mt-2 ${pctRevenue >= 0 ? 'text-purple-600' : 'text-red-600'}`}>{fmtPct(pctRevenue)}</p>
                     </div>
                     <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
                       <CreditCard className="w-5 h-5 text-purple-600" />
@@ -993,6 +1245,83 @@ export function Admin() {
               </div>
             </>
           )}
+
+          {/* ========== OFERTAS ========== */}
+          {section === 'offers' && (
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <h1 className="text-2xl font-bold text-[#333]">Ofertas</h1>
+                <Button
+                  onClick={openAddOffer}
+                  className="bg-[#1e5631] hover:bg-[#164a28] text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nueva oferta
+                </Button>
+              </div>
+              <p className="text-gray-600 mb-6">
+                Las ofertas se muestran en la tienda en la sección Ofertas. Cada producto solo puede tener una oferta activa.
+              </p>
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                {offersLoading ? (
+                  <div className="p-12 text-center text-gray-500">Cargando ofertas...</div>
+                ) : offers.length === 0 ? (
+                  <div className="p-12 text-center text-gray-500">
+                    No hay ofertas. Añade una con el botón superior.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-[#f8f8f8]">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-sm font-medium text-gray-600">Producto</th>
+                          <th className="px-6 py-3 text-left text-sm font-medium text-gray-600">Descuento</th>
+                          <th className="px-6 py-3 text-left text-sm font-medium text-gray-600">Precio oferta</th>
+                          <th className="px-6 py-3 text-left text-sm font-medium text-gray-600">Válida hasta</th>
+                          <th className="px-6 py-3 text-left text-sm font-medium text-gray-600">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {offers.map((offer) => {
+                          const offerPrice = offer.product.price * (1 - offer.discountPercent / 100);
+                          return (
+                            <tr key={offer.id} className="hover:bg-gray-50">
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-3">
+                                  <img src={offer.product.image} alt="" className="w-12 h-12 object-cover rounded-md" />
+                                  <span className="font-medium text-[#333]">{offer.product.name}</span>
+                                </div>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span className="font-bold text-[#e85d04]">-{offer.discountPercent}%</span>
+                              </td>
+                              <td className="px-6 py-4 text-sm">
+                                <span className="text-gray-400 line-through">S/ {offer.product.price.toFixed(2)}</span>
+                                <span className="ml-2 font-semibold text-[#1e5631]">S/ {offerPrice.toFixed(2)}</span>
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-500">
+                                {offer.validUntil ? new Date(offer.validUntil).toLocaleDateString('es-PE') : 'Sin fecha'}
+                              </td>
+                              <td className="px-6 py-4">
+                                <div className="flex gap-2">
+                                  <Button variant="outline" size="sm" onClick={() => openEditOffer(offer)} className="border-[#1e5631] text-[#1e5631] hover:bg-[#1e5631] hover:text-white">
+                                    <Pencil className="w-4 h-4" />
+                                  </Button>
+                                  <Button variant="outline" size="sm" onClick={() => setOfferToDelete(offer)} className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white">
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </main>
       </div>
 
@@ -1059,7 +1388,7 @@ export function Admin() {
       )}
 
       {/* Modal añadir/editar producto */}
-      <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
+      <Dialog open={productDialogOpen} onOpenChange={(open) => { setProductDialogOpen(open); if (!open) setProductError(null); }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -1067,6 +1396,9 @@ export function Admin() {
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            {productError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{productError}</p>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="name">Nombre *</Label>
               <Input
@@ -1120,13 +1452,44 @@ export function Admin() {
               </select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="image">URL imagen</Label>
+              <Label htmlFor="image">Imagen del producto</Label>
               <Input
                 id="image"
                 value={productForm.image}
                 onChange={(e) => setProductForm((f) => ({ ...f, image: e.target.value }))}
-                placeholder="/product-drill.jpg"
+                placeholder="/product-drill.jpg o sube una foto"
               />
+              <div className="flex flex-wrap items-center gap-3 mt-1">
+                <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-[#1e5631] text-[#1e5631] hover:bg-[#1e5631]/10 text-sm font-medium">
+                  <Upload className="w-4 h-4" />
+                  Subir desde PC o celular
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file || !file.type.startsWith('image/')) return;
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const dataUrl = reader.result as string;
+                        setProductForm((f) => ({ ...f, image: dataUrl }));
+                      };
+                      reader.readAsDataURL(file);
+                      e.target.value = '';
+                    }}
+                  />
+                </label>
+                {productForm.image && (
+                  <div className="w-16 h-16 rounded border border-gray-200 overflow-hidden bg-[#f8f8f8] flex-shrink-0">
+                    <img
+                      src={productForm.image}
+                      alt="Vista previa"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="description">Descripción</Label>
@@ -1215,7 +1578,7 @@ export function Admin() {
             </Button>
             <Button
               onClick={handleSaveProduct}
-              disabled={productSaving || !productForm.name.trim() || productForm.price < 0 || productForm.stock < 0}
+              disabled={productSaving || !productForm.name.trim() || productForm.price < 0 || productForm.stock < 0 || !productForm.category.trim()}
               className="bg-[#1e5631] hover:bg-[#164a28]"
             >
               {productSaving ? 'Guardando...' : editingProductId ? 'Guardar cambios' : 'Añadir producto'}
@@ -1283,8 +1646,84 @@ export function Admin() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Modal añadir/editar oferta */}
+      <Dialog open={offerDialogOpen} onOpenChange={(open) => { setOfferDialogOpen(open); if (!open) setOfferError(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingOfferId ? 'Editar oferta' : 'Nueva oferta'}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {offerError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{offerError}</p>
+            )}
+            <div className="grid gap-2">
+              <Label>Producto</Label>
+              <select
+                value={offerForm.productId}
+                onChange={(e) => setOfferForm((f) => ({ ...f, productId: e.target.value }))}
+                disabled={!!editingOfferId}
+                className="h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
+              >
+                <option value="">Seleccionar producto...</option>
+                {(editingOfferId ? products : products.filter((p) => !offers.some((o) => o.productId === p.id))).map((p) => (
+                  <option key={p.id} value={p.id}>{p.name} — S/ {p.price.toFixed(2)}</option>
+                ))}
+              </select>
+              {editingOfferId && <p className="text-xs text-gray-500">No se puede cambiar el producto al editar.</p>}
+            </div>
+            <div className="grid gap-2">
+              <Label>Descuento (%)</Label>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                step={1}
+                value={offerForm.discountPercent}
+                onChange={(e) => setOfferForm((f) => ({ ...f, discountPercent: Number(e.target.value) || 0 }))}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Válida hasta (opcional)</Label>
+              <Input
+                type="date"
+                value={offerForm.validUntil}
+                onChange={(e) => setOfferForm((f) => ({ ...f, validUntil: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOfferDialogOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={handleSaveOffer}
+              disabled={offerSaving || !offerForm.productId.trim() || offerForm.discountPercent < 0 || offerForm.discountPercent > 100}
+              className="bg-[#1e5631] hover:bg-[#164a28]"
+            >
+              {offerSaving ? 'Guardando...' : editingOfferId ? 'Guardar cambios' : 'Crear oferta'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmar eliminar oferta */}
+      <AlertDialog open={!!offerToDelete} onOpenChange={() => setOfferToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar esta oferta?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La oferta de &quot;{offerToDelete?.product.name}&quot; dejará de mostrarse en la tienda.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteOffer} className="bg-red-600 hover:bg-red-700">
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Confirmar eliminar producto */}
-      <AlertDialog open={!!productToDelete} onOpenChange={() => setProductToDelete(null)}>
+      <AlertDialog open={!!productToDelete} onOpenChange={(open) => { if (!open) { setProductToDelete(null); setProductDeleteError(null); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar producto?</AlertDialogTitle>
@@ -1292,14 +1731,26 @@ export function Admin() {
               Se eliminará &quot;{productToDelete?.name}&quot;. Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          {productDeleteError && (
+            <p className="text-sm text-red-600 px-6" role="alert">{productDeleteError}</p>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDeleteProduct}
-              className="bg-red-600 hover:bg-red-700"
+            <AlertDialogCancel disabled={productDeleteInProgress}>Cancelar</AlertDialogCancel>
+            <Button
+              type="button"
+              onClick={(e) => confirmDeleteProduct(e)}
+              disabled={productDeleteInProgress}
+              className="bg-red-600 hover:bg-red-700 text-white"
             >
-              Eliminar
-            </AlertDialogAction>
+              {productDeleteInProgress ? (
+                <span className="flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" aria-hidden />
+                  Eliminando...
+                </span>
+              ) : (
+                'Eliminar'
+              )}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

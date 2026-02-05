@@ -1,18 +1,11 @@
 import { Link } from 'react-router-dom';
-import { Phone, Mail, Clock, Facebook, Instagram, Twitter, Truck } from 'lucide-react';
+import { Phone, Mail, Clock, Facebook, Instagram, Twitter } from 'lucide-react';
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
     <footer className="bg-[#333] text-white">
-      {/* Barra de envío destacada */}
-      <div className="bg-[#1e5631] py-3">
-        <div className="container-custom flex items-center justify-center gap-2 text-white font-semibold">
-          <Truck className="w-5 h-5 shrink-0" />
-          <span>Envío de 3 a 5 días a todo nivel nacional</span>
-        </div>
-      </div>
       <div className="container-custom py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           {/* Column 1: Logo & Description */}

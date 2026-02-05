@@ -7,6 +7,28 @@ import { useProductsStore } from '@/store/productsStore';
 import { Button } from '@/components/ui/button';
 import { API } from '@/lib/api';
 
+interface ProductOffer {
+  validUntil: string | null;
+  discountPercent: number;
+}
+
+function formatCountdown(validUntil: string): string {
+  const end = new Date(validUntil);
+  const now = new Date();
+  if (end.getTime() <= now.getTime()) return 'Oferta terminada';
+  const ms = end.getTime() - now.getTime();
+  const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+  const hours = Math.floor((ms % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+  if (days > 0) return `Termina en ${days} d ${hours} h`;
+  if (hours > 0) return `Termina en ${hours} h`;
+  const mins = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
+  return `Termina en ${mins} min`;
+}
+
+function formatEndDate(validUntil: string): string {
+  return new Date(validUntil).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
 const TAG_STYLES: Record<ProductTag, string> = {
   'IN STOCK': 'bg-[#2d9d5f] text-white',
   SALE: 'bg-[#e85d04] text-white',
@@ -25,32 +47,32 @@ export function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addToCart, items } = useCartStore();
-  const { products, fetchProducts } = useProductsStore();
+  const { products } = useProductsStore();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [showAddedMessage, setShowAddedMessage] = useState(false);
+  const [offer, setOffer] = useState<{ validUntil: string | null; discountPercent: number } | null>(null);
+  const [countdown, setCountdown] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) {
       setLoading(false);
       setError('ID no válido');
+      setProduct(null);
       return;
     }
+    setLoading(true);
+    setError(null);
+    setProduct(null);
     const fromStore = products.find((p) => p.id === id);
     if (fromStore) {
       setProduct(fromStore);
-      setError(null);
       setLoading(false);
       return;
     }
-    if (products.length === 0) {
-      fetchProducts();
-    }
     let cancelled = false;
-    setLoading(true);
-    setError(null);
     fetch(`${API}/products/${id}`)
       .then((res) => {
         if (!res.ok) {
@@ -60,7 +82,9 @@ export function ProductDetail() {
         return res.json();
       })
       .then((data) => {
-        if (!cancelled) setProduct(data);
+        if (!cancelled) {
+          setProduct(data);
+        }
       })
       .catch((e) => {
         if (!cancelled) {
@@ -74,7 +98,30 @@ export function ProductDetail() {
         if (!cancelled) setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [id, products]);
+  }, [id]);
+
+  useEffect(() => {
+    if (!product) return;
+    let cancelled = false;
+    fetch(`${API}/offers`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (cancelled || !Array.isArray(data)) return;
+        const o = data.find((x: { productId: string }) => x.productId === product.id);
+        if (o) setOffer({ validUntil: o.validUntil ?? null, discountPercent: o.discountPercent });
+        else setOffer(null);
+      })
+      .catch(() => setOffer(null));
+    return () => { cancelled = true; };
+  }, [product?.id]);
+
+  useEffect(() => {
+    if (!offer?.validUntil) return;
+    const tick = () => setCountdown(formatCountdown(offer.validUntil!));
+    tick();
+    const id = setInterval(tick, 60 * 1000);
+    return () => clearInterval(id);
+  }, [offer?.validUntil]);
 
   const isInCart = product ? items.some((item) => item.product.id === product.id) : false;
   const rating = product?.rating ?? 4.5;
@@ -83,10 +130,19 @@ export function ProductDetail() {
 
   const getQty = () => Math.min(Math.max(1, quantity), product?.stock ?? 1);
 
+  const hasOffer = offer != null;
+  const displayPrice = hasOffer && product
+    ? Math.round(product.price * (1 - offer.discountPercent / 100) * 100) / 100
+    : product?.price ?? 0;
+  const productToAdd = hasOffer && product
+    ? { ...product, price: displayPrice }
+    : product!;
+
   const handleAddToCart = () => {
     if (!product) return;
     const qty = getQty();
-    for (let i = 0; i < qty; i++) addToCart(product);
+    const opts = hasOffer && offer ? { discountPercent: offer.discountPercent } : undefined;
+    for (let i = 0; i < qty; i++) addToCart(productToAdd, opts);
     setShowAddedMessage(true);
     setTimeout(() => setShowAddedMessage(false), 2000);
   };
@@ -94,7 +150,8 @@ export function ProductDetail() {
   const handleBuyNow = () => {
     if (!product) return;
     const qty = getQty();
-    for (let i = 0; i < qty; i++) addToCart(product);
+    const opts = hasOffer && offer ? { discountPercent: offer.discountPercent } : undefined;
+    for (let i = 0; i < qty; i++) addToCart(productToAdd, opts);
     navigate('/checkout');
   };
 
@@ -156,7 +213,7 @@ export function ProductDetail() {
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col md:flex-row">
           {/* Imagen - si no hay stock se muestra "Próximamente" */}
           <div className="w-full md:w-1/2 lg:w-2/5 flex-shrink-0 bg-[#f8f8f8] p-6 md:p-10">
-            <div className="aspect-square max-w-md mx-auto rounded-lg overflow-hidden bg-[#f8f8f8] flex items-center justify-center">
+            <div className="relative aspect-square max-w-md mx-auto rounded-lg overflow-hidden bg-[#f8f8f8] flex items-center justify-center">
               {outOfStock ? (
                 <img
                   src="/out-of-stock.png"
@@ -170,12 +227,22 @@ export function ProductDetail() {
                   className="w-full h-full object-cover"
                 />
               )}
+              {!outOfStock && hasOffer && (
+                <span className="absolute top-3 left-3 bg-[#e85d04] text-white text-xs font-bold uppercase px-2 py-1 rounded">
+                  OFERTA
+                </span>
+              )}
             </div>
           </div>
 
           {/* Info */}
           <div className="flex-1 p-6 md:p-10 flex flex-col">
             <div className="flex flex-wrap items-center gap-2 mb-2">
+              {hasOffer && (
+                <span className="text-xs font-bold uppercase px-2 py-1 rounded bg-[#e85d04] text-white">
+                  OFERTA -{offer!.discountPercent}%
+                </span>
+              )}
               {product.tag && (
                 <span className={`text-xs font-bold uppercase px-2 py-1 rounded ${TAG_STYLES[product.tag]}`}>
                   {TAG_LABELS_ES[product.tag]}
@@ -195,15 +262,28 @@ export function ProductDetail() {
             </p>
 
             <div className="flex flex-wrap items-baseline gap-2 mb-4">
-              {product.originalPrice != null && (
+              {(hasOffer || product.originalPrice != null) && (
                 <span className="text-lg text-gray-400 line-through">
-                  S/ {product.originalPrice.toFixed(2)}
+                  S/ {(hasOffer ? product.price : product.originalPrice!).toFixed(2)}
                 </span>
               )}
               <span className="text-2xl font-bold text-[#333]">
-                S/ {product.price.toFixed(2)}
+                S/ {displayPrice.toFixed(2)}
               </span>
+              {hasOffer && <span className="text-sm font-semibold text-[#e85d04]">-{offer!.discountPercent}%</span>}
             </div>
+            {hasOffer && offer && (
+              <div className="text-sm text-[#666] mb-4">
+                {offer.validUntil ? (
+                  <>
+                    <span className="font-medium text-[#333]">{countdown ?? formatCountdown(offer.validUntil)}</span>
+                    <span className="ml-1">(válida hasta {formatEndDate(offer.validUntil)})</span>
+                  </>
+                ) : (
+                  <span className="font-medium text-[#333]">Oferta activa</span>
+                )}
+              </div>
+            )}
             <p className="text-sm text-gray-500 mb-6">
               {outOfStock ? (
                 <span className="inline-block px-3 py-1.5 bg-red-100 text-red-800 font-medium rounded">Agotado - Próximamente</span>

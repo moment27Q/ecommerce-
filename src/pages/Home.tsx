@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Zap, Wrench, Building2, Paintbrush, Droplets, Lightbulb, Check, Truck, Shield, Headphones } from 'lucide-react';
+import { ArrowRight, Zap, Wrench, Building2, Paintbrush, Droplets, Lightbulb } from 'lucide-react';
 import { ProductCard } from '@/components/product/ProductCard';
 import { categories } from '@/data/products';
 import { useProductsStore } from '@/store/productsStore';
@@ -15,15 +15,37 @@ const HERO_SLIDES_FALLBACK = [
 const HERO_INTERVAL_MS = 5000;
 const API = '/api';
 
+interface CatalogOffer {
+  validUntil: string | null;
+  discountPercent: number;
+}
+
 export function Home() {
   const { products, fetchProducts } = useProductsStore();
   const featuredProducts = products.slice(0, 8);
   const [heroIndex, setHeroIndex] = useState(0);
   const [heroSlides, setHeroSlides] = useState<{ src: string; alt: string }[]>([]);
+  const [offersByProductId, setOffersByProductId] = useState<Record<string, CatalogOffer>>({});
 
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API}/offers`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (cancelled || !Array.isArray(data)) return;
+        const map: Record<string, CatalogOffer> = {};
+        data.forEach((o: { productId: string; validUntil?: string; discountPercent: number }) => {
+          map[o.productId] = { validUntil: o.validUntil ?? null, discountPercent: o.discountPercent };
+        });
+        setOffersByProductId(map);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -245,45 +267,9 @@ export function Home() {
                 className="animate-on-scroll"
                 style={{ animationDelay: `${index * 100}ms` }}
               >
-                <ProductCard product={product} />
+                <ProductCard product={product} offer={offersByProductId[product.id]} />
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="py-20 px-[5%] bg-[#333] text-white">
-        <div className="max-w-[80rem] mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
-            <div className="animate-on-scroll">
-              <div className="w-16 h-16 mx-auto mb-4 bg-[#946545] rounded-full flex items-center justify-center">
-                <Check className="w-8 h-8" />
-              </div>
-              <h3 className="text-lg font-medium mb-2">Calidad Garantizada</h3>
-              <p className="text-gray-400 text-sm">Productos de las mejores marcas</p>
-            </div>
-            <div className="animate-on-scroll">
-              <div className="w-16 h-16 mx-auto mb-4 bg-[#946545] rounded-full flex items-center justify-center">
-                <Truck className="w-8 h-8" />
-              </div>
-              <h3 className="text-lg font-medium mb-2">Envío Rápido</h3>
-              <p className="text-gray-400 text-sm">Entrega en 24-48 horas</p>
-            </div>
-            <div className="animate-on-scroll">
-              <div className="w-16 h-16 mx-auto mb-4 bg-[#946545] rounded-full flex items-center justify-center">
-                <Shield className="w-8 h-8" />
-              </div>
-              <h3 className="text-lg font-medium mb-2">Pago Seguro</h3>
-              <p className="text-gray-400 text-sm">Múltiples métodos de pago</p>
-            </div>
-            <div className="animate-on-scroll">
-              <div className="w-16 h-16 mx-auto mb-4 bg-[#946545] rounded-full flex items-center justify-center">
-                <Headphones className="w-8 h-8" />
-              </div>
-              <h3 className="text-lg font-medium mb-2">Soporte 24/7</h3>
-              <p className="text-gray-400 text-sm">Atención al cliente permanente</p>
-            </div>
           </div>
         </div>
       </section>

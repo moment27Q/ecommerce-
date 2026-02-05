@@ -8,6 +8,13 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 
+const API = '/api';
+
+export interface CatalogOffer {
+  validUntil: string | null;
+  discountPercent: number;
+}
+
 const SIDEBAR_CATEGORIES = [
   { label: 'Herramientas', value: 'tools' },
   { label: 'Materias primas', value: 'raw' },
@@ -27,10 +34,27 @@ const categoryToSidebar: Record<string, string> = {
 export function Catalog() {
   const { products, fetchProducts } = useProductsStore();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [offersByProductId, setOffersByProductId] = useState<Record<string, CatalogOffer>>({});
 
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API}/offers`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data) => {
+        if (cancelled || !Array.isArray(data)) return;
+        const map: Record<string, CatalogOffer> = {};
+        data.forEach((o: { productId: string; validUntil?: string; discountPercent: number }) => {
+          map[o.productId] = { validUntil: o.validUntil ?? null, discountPercent: o.discountPercent };
+        });
+        setOffersByProductId(map);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
 
@@ -239,7 +263,7 @@ export function Catalog() {
                     className="animate-on-scroll"
                     style={{ animationDelay: `${index * 50}ms` }}
                   >
-                    <ProductCard product={product} />
+                    <ProductCard product={product} offer={offersByProductId[product.id]} />
                   </div>
                 ))}
               </div>

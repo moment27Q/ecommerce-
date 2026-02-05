@@ -6,7 +6,7 @@ interface CartState {
   items: CartItem[];
   orders: Order[];
   isCartOpen: boolean;
-  addToCart: (product: Product) => void;
+  addToCart: (product: Product, options?: { discountPercent?: number }) => void;
   removeFromCart: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => void;
   clearCart: () => void;
@@ -25,7 +25,8 @@ export const useCartStore = create<CartState>()(
       orders: [],
       isCartOpen: false,
 
-      addToCart: (product) => {
+      addToCart: (product, options) => {
+        const discountPercent = options?.discountPercent;
         set((state) => {
           const existingItem = state.items.find(
             (item) => item.product.id === product.id
@@ -39,7 +40,9 @@ export const useCartStore = create<CartState>()(
               ),
             };
           }
-          return { items: [...state.items, { product, quantity: 1 }] };
+          return {
+            items: [...state.items, { product, quantity: 1, ...(discountPercent != null ? { discountPercent } : {}) }],
+          };
         });
       },
 

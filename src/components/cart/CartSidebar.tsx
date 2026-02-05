@@ -79,9 +79,16 @@ export function CartSidebar() {
                     <h4 className="text-sm font-medium text-[#333] truncate">
                       {item.product.name}
                     </h4>
-                    <p className="text-[#946545] font-semibold mt-1">
-                      S/ {item.product.price.toFixed(2)}
-                    </p>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {item.discountPercent != null && (
+                        <span className="text-xs font-bold uppercase px-1.5 py-0.5 rounded bg-[#e85d04] text-white">
+                          Oferta -{item.discountPercent}%
+                        </span>
+                      )}
+                      <p className="text-[#946545] font-semibold">
+                        S/ {item.product.price.toFixed(2)}
+                      </p>
+                    </div>
 
                     {/* Quantity Controls */}
                     <div className="flex items-center gap-2 mt-2">

@@ -1,9 +1,32 @@
 import { Link } from 'react-router-dom';
 import { ShoppingCart, Check, Star } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Product, ProductTag } from '@/types';
 import { useCartStore } from '@/store/cartStore';
 import { Button } from '@/components/ui/button';
+
+export interface ProductOffer {
+  validUntil: string | null;
+  discountPercent: number;
+}
+
+function formatCountdown(validUntil: string): string {
+  const end = new Date(validUntil);
+  const now = new Date();
+  if (end.getTime() <= now.getTime()) return 'Oferta terminada';
+  const ms = end.getTime() - now.getTime();
+  const days = Math.floor(ms / (24 * 60 * 60 * 1000));
+  const hours = Math.floor((ms % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
+  if (days > 0) return `Termina en ${days} d ${hours} h`;
+  if (hours > 0) return `Termina en ${hours} h`;
+  const mins = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
+  return `Termina en ${mins} min`;
+}
+
+function formatEndDate(validUntil: string): string {
+  const d = new Date(validUntil);
+  return d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
 
 const TAG_STYLES: Record<ProductTag, string> = {
   'IN STOCK': 'bg-[#2d9d5f] text-white',
@@ -21,20 +44,50 @@ const TAG_LABELS_ES: Record<ProductTag, string> = {
 
 interface ProductCardProps {
   product: Product;
+  offer?: ProductOffer | null;
 }
 
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, offer }: ProductCardProps) {
   const { addToCart, items } = useCartStore();
   const [showAddedMessage, setShowAddedMessage] = useState(false);
+  const [countdown, setCountdown] = useState<string | null>(offer?.validUntil ? formatCountdown(offer.validUntil) : null);
+
+  useEffect(() => {
+    if (!offer?.validUntil) return;
+    const tick = () => setCountdown(formatCountdown(offer.validUntil!));
+    tick();
+    const id = setInterval(tick, 60 * 1000);
+    return () => clearInterval(id);
+  }, [offer?.validUntil]);
 
   const isInCart = items.some((item) => item.product.id === product.id);
-  const showSaleBadge = product.tag === 'SALE' || product.originalPrice != null;
+  const hasOffer = offer != null;
+  const showSaleBadge = hasOffer || product.tag === 'SALE' || product.originalPrice != null;
   const rating = product.rating ?? 4.5;
   const outOfStock = product.stock <= 0;
+  const alreadyDiscounted = product.originalPrice != null && hasOffer;
+  const displayPrice =
+    hasOffer && offer
+      ? alreadyDiscounted
+        ? product.price
+        : Math.round(product.price * (1 - offer.discountPercent / 100) * 100) / 100
+      : product.price;
+  const showOriginalPrice = hasOffer && offer ? true : product.originalPrice != null;
+  const originalPrice =
+    hasOffer && offer
+      ? alreadyDiscounted
+        ? product.originalPrice ?? product.price
+        : product.price
+      : product.originalPrice ?? null;
+
+  const productToAdd = hasOffer && offer ? { ...product, price: displayPrice } : product;
 
   const handleAddToCart = () => {
     if (outOfStock) return;
-    addToCart(product);
+    addToCart(
+      productToAdd,
+      hasOffer && offer ? { discountPercent: offer.discountPercent } : undefined
+    );
     setShowAddedMessage(true);
     setTimeout(() => setShowAddedMessage(false), 2000);
   };
@@ -85,15 +138,31 @@ export function ProductCard({ product }: ProductCardProps) {
           {product.description}
         </p>
         <div className="flex items-center gap-2 pt-2 flex-shrink-0">
-          {product.originalPrice != null && (
+          {showOriginalPrice && originalPrice != null && (
             <span className="text-sm text-gray-400 line-through">
-              S/ {product.originalPrice.toFixed(2)}
+              S/ {originalPrice.toFixed(2)}
             </span>
           )}
           <span className="text-lg font-bold text-[#333]">
-            S/ {product.price.toFixed(2)}
+            S/ {displayPrice.toFixed(2)}
           </span>
+          {hasOffer && offer && (
+            <span className="text-xs font-semibold text-[#e85d04]">-{offer.discountPercent}%</span>
+          )}
         </div>
+
+        {(hasOffer && offer) && (
+          <div className="text-xs text-[#666] pt-1 flex-shrink-0">
+            {offer.validUntil ? (
+              <>
+                <span className="font-medium text-[#333]">{countdown ?? formatCountdown(offer.validUntil)}</span>
+                <span className="ml-1">(válida hasta {formatEndDate(offer.validUntil)})</span>
+              </>
+            ) : (
+              <span className="font-medium text-[#333]">Oferta activa</span>
+            )}
+          </div>
+        )}
 
         <div className="flex justify-end pt-2 flex-shrink-0">
           {product.tag && (

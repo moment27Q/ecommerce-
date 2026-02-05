@@ -10,6 +10,7 @@ import { Login } from '@/pages/Login';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Contact } from '@/pages/Contact';
 import { ProductDetail } from '@/pages/ProductDetail';
+import { Ofertas } from '@/pages/Ofertas';
 import './App.css';
 
 function AppContent() {
@@ -24,6 +25,7 @@ function AppContent() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/catalogo" element={<Catalog />} />
+          <Route path="/ofertas" element={<Ofertas />} />
           <Route path="/producto/:id" element={<ProductDetail />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/checkout" element={<Checkout />} />

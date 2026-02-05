@@ -142,9 +142,16 @@ export function Checkout() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="font-bold text-[#333]">{item.product.name}</p>
-                      <p className="text-sm text-gray-500 mt-0.5">
-                        SKU: {item.product.id} • {item.product.category}
-                      </p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {item.discountPercent != null && (
+                          <span className="text-xs font-bold uppercase px-1.5 py-0.5 rounded bg-[#e85d04] text-white">
+                            Oferta -{item.discountPercent}%
+                          </span>
+                        )}
+                        <p className="text-sm text-gray-500">
+                          SKU: {item.product.id} • {item.product.category}
+                        </p>
+                      </div>
                       <div className="flex items-center gap-2 mt-3">
                         <button
                           type="button"
@@ -198,7 +205,7 @@ export function Checkout() {
               <div className="bg-[#f8f8f8] rounded-lg border border-gray-200 p-6 space-y-4">
                 <div>
                   <Label htmlFor="fullName" className="text-[#333] font-medium">
-                    Full Name
+                    Nombre completo
                   </Label>
                   <Input
                     id="fullName"
@@ -208,7 +215,7 @@ export function Checkout() {
                       setFormData({ ...formData, fullName: e.target.value })
                     }
                     className="mt-1.5 bg-white border-gray-200"
-                    placeholder="Enter your full name"
+                    placeholder="Ingresa tu nombre completo"
                   />
                 </div>
                 <div>
@@ -228,7 +235,7 @@ export function Checkout() {
                 </div>
                 <div>
                   <Label htmlFor="phone" className="text-[#333] font-medium">
-                    Phone Number
+                    Número de teléfono
                   </Label>
                   <Input
                     id="phone"
@@ -239,7 +246,7 @@ export function Checkout() {
                       setFormData({ ...formData, phone: e.target.value })
                     }
                     className="mt-1.5 bg-white border-gray-200"
-                    placeholder="+1 (555) 000-0000"
+                    placeholder="Ej: 999 123 456"
                   />
                 </div>
                 <div>
@@ -265,7 +272,7 @@ export function Checkout() {
           <div className="lg:col-span-1">
             <div className="lg:sticky lg:top-24 border border-gray-200 rounded-lg bg-[#fafafa] p-6">
               {/* Order Summary */}
-              <h2 className="text-lg font-bold text-[#333] mb-4">Order Summary</h2>
+              <h2 className="text-lg font-bold text-[#333] mb-4">Resumen del pedido</h2>
               <div className="space-y-2 mb-6">
                 <div className="flex justify-between text-sm text-gray-600">
                   <span>Subtotal</span>
@@ -278,7 +285,7 @@ export function Checkout() {
                   </span>
                 </div>
                 <div className="flex justify-between text-sm text-gray-600">
-                  <span>Tax (Estimated)</span>
+                  <span>Impuesto (estimado)</span>
                   <span className="text-[#333]">S/ {taxEstimated.toFixed(2)}</span>
                 </div>
               </div>
@@ -367,8 +374,8 @@ export function Checkout() {
                 )}
               </Button>
               <p className="text-xs text-gray-500 mt-4 text-center leading-relaxed">
-                By clicking &quot;Confirm Purchase&quot;, you agree to our Terms of
-                Service and Privacy Policy. Secure encrypted payment.
+                Al hacer clic en &quot;Confirmar compra&quot;, aceptas nuestros Términos
+                de servicio y Política de privacidad. Pago seguro cifrado.
               </p>
             </div>
 

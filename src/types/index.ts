@@ -16,6 +16,8 @@ export interface Product {
 export interface CartItem {
   product: Product;
   quantity: number;
+  /** Descuento aplicado (oferta) en %; si existe, el product.price ya es el precio con descuento */
+  discountPercent?: number;
 }
 
 export interface Order {
