@@ -14,8 +14,16 @@ import {
   Pencil,
   Trash2,
   LogOut,
+  ExternalLink,
+  ImageIcon,
+  ChevronUp,
+  ChevronDown,
+  Calendar,
+  MoreVertical,
+  CreditCard,
+  Info,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useProductsStore, type ProductFormData } from '@/store/productsStore';
 import { useAuthStore } from '@/store/authStore';
 import { fetchWithAuth, API } from '@/lib/api';
@@ -43,7 +51,27 @@ import {
 } from '@/components/ui/alert-dialog';
 import type { Order, Product, ProductTag } from '@/types';
 
-type AdminSection = 'dashboard' | 'orders' | 'products';
+type AdminSection = 'dashboard' | 'orders' | 'products' | 'carousel';
+
+function formatOrderDate(dateStr: string): string {
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - d.getTime();
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffHours < 1) return 'Hace menos de 1 hora';
+  if (diffHours < 24) return `Hace ${diffHours} ${diffHours === 1 ? 'hora' : 'horas'}`;
+  if (diffDays === 1) return `Ayer, ${d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}`;
+  if (diffDays < 7) return `Hace ${diffDays} días`;
+  return d.toLocaleDateString('es-PE', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+export interface CarouselSlide {
+  id: number;
+  src: string;
+  alt: string;
+  sortOrder: number;
+}
 
 const PRODUCT_TAGS: ProductTag[] = ['IN STOCK', 'SALE', 'TOOLS', 'BULK PRICING'];
 
@@ -78,6 +106,14 @@ export function Admin() {
   const [productForm, setProductForm] = useState<ProductFormData>(emptyProductForm);
   const [productSaving, setProductSaving] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+
+  const [carouselSlides, setCarouselSlides] = useState<CarouselSlide[]>([]);
+  const [carouselLoading, setCarouselLoading] = useState(false);
+  const [slideDialogOpen, setSlideDialogOpen] = useState(false);
+  const [editingSlideId, setEditingSlideId] = useState<number | null>(null);
+  const [slideForm, setSlideForm] = useState({ image: '', alt: '' });
+  const [slideSaving, setSlideSaving] = useState(false);
+  const [slideToDelete, setSlideToDelete] = useState<CarouselSlide | null>(null);
 
   const loadOrders = useCallback(async () => {
     setOrdersLoading(true);
@@ -123,6 +159,24 @@ export function Admin() {
   useEffect(() => {
     if (section === 'products') loadProducts();
   }, [section, loadProducts]);
+
+  const loadCarousel = useCallback(async () => {
+    setCarouselLoading(true);
+    try {
+      const res = await fetch(`${API}/carousel`);
+      if (!res.ok) throw new Error('Error al cargar carrusel');
+      const data = await res.json();
+      setCarouselSlides(data);
+    } catch {
+      setCarouselSlides([]);
+    } finally {
+      setCarouselLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (section === 'carousel') loadCarousel();
+  }, [section, loadCarousel]);
 
   const filteredOrders = orders
     .filter((order) => {
@@ -264,87 +318,321 @@ export function Admin() {
     }
   };
 
+  const openAddSlide = () => {
+    setEditingSlideId(null);
+    setSlideForm({ image: '', alt: '' });
+    setSlideDialogOpen(true);
+  };
+
+  const openEditSlide = (slide: CarouselSlide) => {
+    setEditingSlideId(slide.id);
+    setSlideForm({ image: slide.src, alt: slide.alt });
+    setSlideDialogOpen(true);
+  };
+
+  const handleSaveSlide = async () => {
+    if (!slideForm.image.trim()) return;
+    setSlideSaving(true);
+    try {
+      if (editingSlideId != null) {
+        const res = await fetchWithAuth(`${API}/carousel/${editingSlideId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ image: slideForm.image.trim(), alt: slideForm.alt.trim() }),
+        });
+        if (res.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        if (!res.ok) throw new Error('Error al actualizar');
+      } else {
+        const res = await fetchWithAuth(`${API}/carousel`, {
+          method: 'POST',
+          body: JSON.stringify({ image: slideForm.image.trim(), alt: slideForm.alt.trim() }),
+        });
+        if (res.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        if (!res.ok) throw new Error('Error al crear');
+      }
+      setSlideDialogOpen(false);
+      setSlideForm({ image: '', alt: '' });
+      setEditingSlideId(null);
+      await loadCarousel();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSlideSaving(false);
+    }
+  };
+
+  const moveSlide = async (index: number, direction: 'up' | 'down') => {
+    const newOrder = [...carouselSlides];
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= newOrder.length) return;
+    [newOrder[index], newOrder[target]] = [newOrder[target], newOrder[index]];
+    const orderIds = newOrder.map((s) => s.id);
+    try {
+      const res = await fetchWithAuth(`${API}/carousel/reorder`, {
+        method: 'PATCH',
+        body: JSON.stringify({ order: orderIds }),
+      });
+      if (res.status === 401) {
+        logout();
+        navigate('/login');
+        return;
+      }
+      if (!res.ok) throw new Error('Error al reordenar');
+      const data = await res.json();
+      setCarouselSlides(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const confirmDeleteSlide = async () => {
+    if (!slideToDelete) return;
+    try {
+      const res = await fetchWithAuth(`${API}/carousel/${slideToDelete.id}`, { method: 'DELETE' });
+      if (res.status === 401) {
+        logout();
+        navigate('/login');
+        return;
+      }
+      if (!res.ok) throw new Error('Error al eliminar');
+      setSlideToDelete(null);
+      await loadCarousel();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#f8f8f8] pt-[4.5rem]">
+    <div className="min-h-screen bg-[#f8f8f8] pt-[8.75rem]">
       <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 bg-[#1e5631] text-white min-h-screen fixed left-0 top-[4.5rem] hidden lg:block z-40">
-          <div className="p-6">
-            <nav className="space-y-2">
+        {/* Sidebar - Menú principal */}
+        <aside className="w-64 bg-[#1e5631] text-white min-h-screen fixed left-0 top-[8.75rem] hidden lg:block z-40">
+          <div className="p-5">
+            <p className="text-xs font-bold uppercase tracking-wider text-white/70 mb-4 px-3">Menú principal</p>
+            <nav className="space-y-1">
               <button
                 onClick={() => setSection('dashboard')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
                   section === 'dashboard' ? 'bg-white/20' : 'hover:bg-white/10'
                 }`}
               >
-                <LayoutDashboard className="w-5 h-5" />
-                Panel
+                <span className={`w-2 h-2 rounded-sm shrink-0 ${section === 'dashboard' ? 'bg-[#e85d04]' : 'bg-transparent'}`} />
+                <LayoutDashboard className="w-5 h-5 shrink-0" />
+                <span className="min-w-0 flex-1">Panel</span>
               </button>
               <button
                 onClick={() => setSection('orders')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
                   section === 'orders' ? 'bg-white/20' : 'hover:bg-white/10'
                 }`}
               >
-                <ShoppingBag className="w-5 h-5" />
-                Compras / Pedidos
+                <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
+                <ShoppingBag className="w-5 h-5 shrink-0" />
+                <span className="min-w-0 flex-1">Compras / Pedidos</span>
               </button>
               <button
                 onClick={() => setSection('products')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
                   section === 'products' ? 'bg-white/20' : 'hover:bg-white/10'
                 }`}
               >
-                <Package className="w-5 h-5" />
-                Productos
+                <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
+                <Package className="w-5 h-5 shrink-0" />
+                <span className="min-w-0 flex-1">Productos</span>
               </button>
-              <div className="mt-8 pt-8 border-t border-white/20">
-                <button
-                  onClick={() => { logout(); navigate('/login'); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-white/90"
-                >
-                  <LogOut className="w-5 h-5" />
-                  Cerrar sesión
-                </button>
-              </div>
+              <button
+                onClick={() => setSection('carousel')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
+                  section === 'carousel' ? 'bg-white/20' : 'hover:bg-white/10'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
+                <ImageIcon className="w-5 h-5 shrink-0" />
+                <span className="min-w-0 flex-1">Carrusel</span>
+              </button>
             </nav>
+            <div className="mt-8 pt-6 border-t border-white/20">
+              <button
+                onClick={() => { logout(); navigate('/login'); }}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-white/90 text-left"
+              >
+                <span className="w-2 h-2 shrink-0 bg-transparent" aria-hidden />
+                <LogOut className="w-5 h-5 shrink-0" />
+                <span className="min-w-0 flex-1">Cerrar sesión</span>
+              </button>
+            </div>
           </div>
         </aside>
 
         <main className="flex-1 lg:ml-64 p-6">
-          {/* ========== DASHBOARD ========== */}
+          {/* ========== PANEL DE CONTROL ========== */}
           {section === 'dashboard' && (
             <>
-              <h1 className="text-2xl font-bold text-[#333] mb-6">Panel</h1>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-white rounded-lg p-6 shadow-sm">
-                  <p className="text-gray-500 text-sm mb-1">Total pedidos</p>
-                  <p className="text-3xl font-bold text-[#333]">{stats.total}</p>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+                <div>
+                  <h1 className="text-2xl font-bold text-[#333]">Panel de Control</h1>
+                  <p className="text-gray-500 text-sm mt-1">Bienvenido de nuevo, aquí tienes el resumen de hoy.</p>
                 </div>
-                <div className="bg-white rounded-lg p-6 shadow-sm">
-                  <p className="text-gray-500 text-sm mb-1">Pendientes</p>
-                  <p className="text-3xl font-bold text-yellow-600">{stats.pending}</p>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" className="border-gray-200 text-gray-600">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Últimos 30 días
+                  </Button>
+                  <Button
+                    onClick={openAddProduct}
+                    className="bg-[#e85d04] hover:bg-[#d35400] text-white"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Nuevo Producto
+                  </Button>
                 </div>
-                <div className="bg-white rounded-lg p-6 shadow-sm">
-                  <p className="text-gray-500 text-sm mb-1">Enviados</p>
-                  <p className="text-3xl font-bold text-purple-600">{stats.shipped}</p>
+              </div>
+
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-gray-500 text-sm mb-1">Total Pedidos</p>
+                      <p className="text-2xl font-bold text-[#333]">{stats.total}</p>
+                      <p className="text-xs text-blue-600 font-medium mt-2">+12%</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                      <ShoppingBag className="w-5 h-5 text-blue-600" />
+                    </div>
+                  </div>
                 </div>
-                <div className="bg-white rounded-lg p-6 shadow-sm">
-                  <p className="text-gray-500 text-sm mb-1">Ventas totales</p>
-                  <p className="text-3xl font-bold text-[#1e5631]">
-                    S/ {stats.totalRevenue.toFixed(2)}
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-gray-500 text-sm mb-1">Pendientes</p>
+                      <p className="text-2xl font-bold text-[#333]">{stats.pending}</p>
+                      <p className="text-xs text-amber-600 font-medium mt-2">+5%</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
+                      <Package className="w-5 h-5 text-amber-600" />
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-gray-500 text-sm mb-1">Enviados</p>
+                      <p className="text-2xl font-bold text-[#333]">{stats.shipped + stats.delivered}</p>
+                      <p className="text-xs text-green-600 font-medium mt-2">+18%</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
+                      <Truck className="w-5 h-5 text-green-600" />
+                    </div>
+                  </div>
+                </div>
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-gray-500 text-sm mb-1">Ventas Totales</p>
+                      <p className="text-2xl font-bold text-[#333]">
+                        S/ {stats.totalRevenue.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-purple-600 font-medium mt-2">+24%</p>
+                    </div>
+                    <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
+                      <CreditCard className="w-5 h-5 text-purple-600" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+                <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div>
+                    <h2 className="text-lg font-bold text-[#333]">Pedidos Recientes</h2>
+                    <p className="text-gray-500 text-sm mt-0.5">Listado de las últimas compras realizadas en la plataforma.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSection('orders')}
+                    className="text-[#1e5631] font-medium hover:underline text-sm shrink-0"
+                  >
+                    Ver todos
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-[#f8f8f8]">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Cliente</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Producto</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Fecha</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Monto</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Estado</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {filteredOrders.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-6 py-8 text-center text-gray-500 text-sm">
+                            No hay pedidos recientes.
+                          </td>
+                        </tr>
+                      ) : (
+                        filteredOrders.slice(0, 5).map((order) => {
+                          const productLabel = order.items.length > 0
+                            ? order.items.length === 1
+                              ? `${order.items[0].product.name} (${order.items[0].quantity} und)`
+                              : `${order.items[0].product.name} +${order.items.length - 1} más`
+                            : '—';
+                          const statusLabel = order.status === 'pending' ? 'PENDIENTE' : order.status === 'paid' ? 'EN PROCESO' : order.status === 'shipped' ? 'ENVIADO' : order.status === 'delivered' ? 'ENTREGADO' : order.status === 'cancelled' ? 'CANCELADO' : order.status;
+                          const statusClass = order.status === 'pending' ? 'bg-amber-100 text-amber-800' : order.status === 'paid' ? 'bg-blue-100 text-blue-800' : order.status === 'shipped' || order.status === 'delivered' ? 'bg-green-100 text-green-800' : order.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800';
+                          return (
+                            <tr key={order.id} className="hover:bg-gray-50/50">
+                              <td className="px-6 py-4 text-sm font-medium text-[#333]">{order.customer.name}</td>
+                              <td className="px-6 py-4 text-sm text-gray-600 max-w-[200px] truncate">{productLabel}</td>
+                              <td className="px-6 py-4 text-sm text-gray-500">{formatOrderDate(order.createdAt)}</td>
+                              <td className="px-6 py-4 text-sm font-medium text-[#333]">S/ {order.total.toFixed(2)}</td>
+                              <td className="px-6 py-4">
+                                <span className={`inline-flex text-xs font-semibold px-2 py-1 rounded ${statusClass}`}>{statusLabel}</span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedOrder(order)}
+                                  className="p-1.5 text-gray-400 hover:text-[#333] rounded"
+                                  aria-label="Ver detalle"
+                                >
+                                  <MoreVertical className="w-5 h-5" />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="bg-[#e85d04] text-white rounded-xl p-5 flex gap-4 items-start">
+                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                  <Info className="w-5 h-5" />
+                </div>
+                <div className="text-sm leading-relaxed">
+                  <p>
+                    Selecciona <strong>Compras / Pedidos</strong> para ver quién compró y gestionar pedidos.
+                    <strong> Productos</strong> para añadir, editar o eliminar stock.
+                    <strong> Carrusel</strong> para gestionar las imágenes del banner de la portada principal.
                   </p>
                 </div>
               </div>
-              <div className="bg-white rounded-lg shadow-sm p-6">
-                <p className="text-gray-600">
-                  Selecciona <strong>Compras / Pedidos</strong> para ver quién compró y gestionar
-                  pedidos. Selecciona <strong>Productos</strong> para añadir, editar o eliminar
-                  productos.
-                </p>
-              </div>
             </>
           )}
+
 
           {/* ========== PEDIDOS / QUIENES COMPRARON ========== */}
           {section === 'orders' && (
@@ -584,7 +872,17 @@ export function Admin() {
                               )}
                             </td>
                             <td className="px-6 py-4">
-                              <div className="flex gap-2">
+                              <div className="flex flex-wrap gap-2 items-center">
+                                <Link
+                                  to={`/producto/${product.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 text-sm text-[#1e5631] hover:underline"
+                                  title="Ver en tienda (misma vista que el cliente)"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                  Ver en tienda
+                                </Link>
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -609,6 +907,89 @@ export function Admin() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </>
+          )}
+
+          {/* ========== CARRUSEL (Hero inicio) ========== */}
+          {section === 'carousel' && (
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <h1 className="text-2xl font-bold text-[#333]">Carrusel del inicio</h1>
+                <Button
+                  onClick={openAddSlide}
+                  className="bg-[#1e5631] hover:bg-[#164a28] text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Añadir imagen
+                </Button>
+              </div>
+              <p className="text-gray-600 mb-6">
+                Las imágenes del carrusel se muestran en la portada y rotan cada 5 segundos. Orden: de arriba a abajo.
+              </p>
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                {carouselLoading ? (
+                  <div className="p-12 text-center text-gray-500">Cargando carrusel...</div>
+                ) : carouselSlides.length === 0 ? (
+                  <div className="p-12 text-center text-gray-500">
+                    No hay imágenes. Añade la primera con el botón superior.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {carouselSlides.map((slide, index) => (
+                      <li key={slide.id} className="flex items-center gap-4 p-4 hover:bg-gray-50">
+                        <div className="flex flex-col gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => moveSlide(index, 'up')}
+                            disabled={index === 0}
+                            className="p-1 text-gray-400 hover:text-[#333] disabled:opacity-30"
+                            aria-label="Subir"
+                          >
+                            <ChevronUp className="w-5 h-5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moveSlide(index, 'down')}
+                            disabled={index === carouselSlides.length - 1}
+                            className="p-1 text-gray-400 hover:text-[#333] disabled:opacity-30"
+                            aria-label="Bajar"
+                          >
+                            <ChevronDown className="w-5 h-5" />
+                          </button>
+                        </div>
+                        <img
+                          src={slide.src}
+                          alt={slide.alt}
+                          className="w-24 h-16 object-cover rounded border border-gray-200 bg-gray-100"
+                          onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="64" viewBox="0 0 96 64"><rect fill="%23eee" width="96" height="64"/><text x="50%" y="50%" fill="%23999" text-anchor="middle" dy=".3em" font-size="10">Sin imagen</text></svg>'; }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-[#333] truncate">{slide.src}</p>
+                          {slide.alt && <p className="text-xs text-gray-500 truncate">{slide.alt}</p>}
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditSlide(slide)}
+                            className="border-[#1e5631] text-[#1e5631] hover:bg-[#1e5631] hover:text-white"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSlideToDelete(slide)}
+                            className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </>
           )}
@@ -817,7 +1198,18 @@ export function Admin() {
               </select>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-wrap gap-2 sm:gap-0">
+            {editingProductId && (
+              <Link
+                to={`/producto/${editingProductId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm text-[#1e5631] hover:underline order-first w-full sm:w-auto"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Ver en tienda (cómo lo ve el cliente)
+              </Link>
+            )}
             <Button variant="outline" onClick={() => setProductDialogOpen(false)}>
               Cancelar
             </Button>
@@ -831,6 +1223,65 @@ export function Admin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal añadir/editar slide del carrusel */}
+      <Dialog open={slideDialogOpen} onOpenChange={setSlideDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingSlideId ? 'Editar imagen del carrusel' : 'Añadir imagen al carrusel'}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="slide-image">URL de la imagen *</Label>
+              <Input
+                id="slide-image"
+                value={slideForm.image}
+                onChange={(e) => setSlideForm((f) => ({ ...f, image: e.target.value }))}
+                placeholder="/hero-banner.jpg o https://..."
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="slide-alt">Texto alternativo (opcional)</Label>
+              <Input
+                id="slide-alt"
+                value={slideForm.alt}
+                onChange={(e) => setSlideForm((f) => ({ ...f, alt: e.target.value }))}
+                placeholder="Descripción de la imagen"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSlideDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveSlide}
+              disabled={slideSaving || !slideForm.image.trim()}
+              className="bg-[#1e5631] hover:bg-[#164a28]"
+            >
+              {slideSaving ? 'Guardando...' : editingSlideId ? 'Guardar cambios' : 'Añadir'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmar eliminar slide */}
+      <AlertDialog open={!!slideToDelete} onOpenChange={() => setSlideToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Quitar esta imagen del carrusel?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La imagen se eliminará del carrusel de la portada. Esta acción no se puede deshacer.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteSlide} className="bg-red-600 hover:bg-red-700">
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Confirmar eliminar producto */}
       <AlertDialog open={!!productToDelete} onOpenChange={() => setProductToDelete(null)}>

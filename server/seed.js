@@ -16,4 +16,17 @@ const insertProduct = db.prepare(`
 for (const p of initialProducts) {
   insertProduct.run(p.id, p.name, p.price, p.image, p.category, p.description, p.stock, p.rating ?? null, p.originalPrice ?? null, p.tag ?? null);
 }
-console.log('Productos insertados. Seed completado.');
+console.log('Productos insertados.');
+
+const carouselCount = db.prepare('SELECT COUNT(*) as n FROM carousel_slides').get();
+if (carouselCount.n === 0) {
+  const insertSlide = db.prepare('INSERT INTO carousel_slides (image, alt, sort_order) VALUES (?, ?, ?)');
+  [
+    ['/hero-banner.jpg', 'Obra en construcción', 0],
+    ['/promo-tools.jpg', 'Herramientas', 1],
+    ['/promo-materials.jpg', 'Materiales', 2],
+    ['/promo-shipping.jpg', 'Envíos', 3],
+  ].forEach(([image, alt], i) => insertSlide.run(image, alt, i));
+  console.log('Carrusel: slides iniciales insertados.');
+}
+console.log('Seed completado.');

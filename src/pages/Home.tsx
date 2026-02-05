@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Zap, Wrench, Building2, Paintbrush, Droplets, Lightbulb, Check, Truck, Shield, Headphones } from 'lucide-react';
 import { ProductCard } from '@/components/product/ProductCard';
@@ -6,13 +6,51 @@ import { categories } from '@/data/products';
 import { useProductsStore } from '@/store/productsStore';
 import { Button } from '@/components/ui/button';
 
+const HERO_SLIDES_FALLBACK = [
+  { src: '/hero-banner.jpg', alt: 'Obra en construcción' },
+  { src: '/promo-tools.jpg', alt: 'Herramientas' },
+  { src: '/promo-materials.jpg', alt: 'Materiales' },
+  { src: '/promo-shipping.jpg', alt: 'Envíos' },
+];
+const HERO_INTERVAL_MS = 5000;
+const API = '/api';
+
 export function Home() {
   const { products, fetchProducts } = useProductsStore();
   const featuredProducts = products.slice(0, 8);
+  const [heroIndex, setHeroIndex] = useState(0);
+  const [heroSlides, setHeroSlides] = useState<{ src: string; alt: string }[]>([]);
 
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API}/carousel`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: { src: string; alt: string }[]) => {
+        if (cancelled) return;
+        const slides = Array.isArray(data) && data.length > 0
+          ? data.map((s) => ({ src: s.src || '', alt: s.alt || '' }))
+          : HERO_SLIDES_FALLBACK;
+        setHeroSlides(slides);
+      })
+      .catch(() => {
+        if (!cancelled) setHeroSlides(HERO_SLIDES_FALLBACK);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const slides = heroSlides.length > 0 ? heroSlides : HERO_SLIDES_FALLBACK;
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setHeroIndex((i) => (i + 1) % slides.length);
+    }, HERO_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [slides.length]);
+
   const observerRef = useRef<IntersectionObserver | null>(null);
 
   useEffect(() => {
@@ -52,21 +90,44 @@ export function Home() {
   };
 
   return (
-    <div className="min-h-screen">
-      {/* Hero Section */}
+    <div className="min-h-screen pt-[8.75rem]">
+      {/* Hero Section - Carrusel (imágenes gestionadas en Admin) */}
       <section className="relative h-[500px] md:h-[600px] flex items-center justify-center overflow-hidden">
-        {/* Background Image */}
-        <div
-          className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-          style={{ backgroundImage: 'url(/hero-banner.jpg)' }}
-        />
+        {/* Carrusel de fondos */}
+        {slides.map((slide, i) => (
+          <div
+            key={slide.src + i}
+            className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-opacity duration-700 ease-in-out"
+            style={{
+              backgroundImage: `url(${slide.src})`,
+              opacity: i === heroIndex ? 1 : 0,
+              zIndex: i === heroIndex ? 0 : -1,
+            }}
+            aria-hidden={i !== heroIndex}
+          />
+        ))}
         {/* Overlay */}
-        <div className="absolute inset-0 bg-black/50" />
+        <div className="absolute inset-0 bg-black/50 z-[1]" />
+
+        {/* Indicadores del carrusel */}
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+          {slides.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => setHeroIndex(i)}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                i === heroIndex ? 'w-8 bg-white' : 'w-2 bg-white/50 hover:bg-white/70'
+              }`}
+              aria-label={`Ir a imagen ${i + 1}`}
+            />
+          ))}
+        </div>
 
         {/* Content */}
         <div className="relative z-10 text-center text-white px-4 animate-fadeIn">
           <h1 className="text-4xl md:text-6xl font-medium mb-4 leading-tight">
-            TODO PARA TU
+            TODO LO QUE NECESITAS PARA TU
             <br />
             <span className="text-[#c8a48c]">CONSTRUCCIÓN</span>
           </h1>

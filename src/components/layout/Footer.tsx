@@ -1,11 +1,18 @@
 import { Link } from 'react-router-dom';
-import { Phone, Mail, Clock, Facebook, Instagram, Twitter } from 'lucide-react';
+import { Phone, Mail, Clock, Facebook, Instagram, Twitter, Truck } from 'lucide-react';
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
     <footer className="bg-[#333] text-white">
+      {/* Barra de envío destacada */}
+      <div className="bg-[#1e5631] py-3">
+        <div className="container-custom flex items-center justify-center gap-2 text-white font-semibold">
+          <Truck className="w-5 h-5 shrink-0" />
+          <span>Envío de 3 a 5 días a todo nivel nacional</span>
+        </div>
+      </div>
       <div className="container-custom py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           {/* Column 1: Logo & Description */}
@@ -48,11 +55,11 @@ export function Footer() {
             <ul className="space-y-3">
               <li className="flex items-center gap-3">
                 <Phone className="w-5 h-5 text-[#e85d04]" />
-                <span className="text-gray-400 text-sm">+51 987 654 321</span>
+                <a href="tel:941576393" className="text-gray-400 text-sm hover:text-[#2d9d5f] transition-colors">941 576 393</a>
               </li>
               <li className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-[#e85d04]" />
-                <span className="text-gray-400 text-sm">ventas@construmarket.pe</span>
+                <a href="mailto:josarzc@hotmail.com" className="text-gray-400 text-sm hover:text-[#2d9d5f] transition-colors">josarzc@hotmail.com</a>
               </li>
               <li className="flex items-start gap-3">
                 <Clock className="w-5 h-5 text-[#e85d04] mt-0.5" />

@@ -83,7 +83,7 @@ export function Checkout() {
 
   if (showSuccess) {
     return (
-      <div className="min-h-screen bg-[#f8f8f8] pt-[4.5rem] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#f8f8f8] pt-[8.75rem] flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-8 max-w-md w-full text-center">
           <div className="w-20 h-20 bg-[#1e5631] rounded-full flex items-center justify-center mx-auto mb-6">
             <Check className="w-10 h-10 text-white" />
@@ -111,11 +111,16 @@ export function Checkout() {
   ];
 
   return (
-    <div className="min-h-screen bg-white pt-[4.5rem] pb-12">
+    <div className="min-h-screen bg-white pt-[8.75rem] pb-12">
       <div className="max-w-[80rem] mx-auto px-[5%] py-8">
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left column: Review Your Order + Delivery Information */}
           <div className="lg:col-span-2 space-y-8">
+            {/* Envío destacado */}
+            <div className="bg-[#1e5631] text-white rounded-lg py-3 px-4 flex items-center justify-center gap-2 font-semibold">
+              <Truck className="w-5 h-5 shrink-0" />
+              <span>Envío de 3 a 5 días a todo nivel nacional</span>
+            </div>
             {/* Review Your Order */}
             <section>
               <h2 className="text-xl font-bold text-[#333] mb-4 flex items-center gap-2">

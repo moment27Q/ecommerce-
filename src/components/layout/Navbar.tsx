@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Menu, X, Search, LogIn } from 'lucide-react';
+import { ShoppingCart, Menu, X, Search, LogIn, Truck } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
@@ -16,7 +16,6 @@ export function Navbar() {
 
   const navLinks = [
     { path: '/', label: 'Inicio' },
-    { path: '/gallery', label: 'Galería' },
     { path: '/catalogo', label: 'Tienda' },
     { path: '/contact', label: 'Contáctanos' },
   ];
@@ -41,14 +40,20 @@ export function Navbar() {
   const isShopActive = location.pathname === '/catalogo';
 
   return (
-    <nav className="fixed top-0 left-0 right-0 bg-white shadow-sm z-50 h-[4.5rem]">
+    <header className="fixed top-0 left-0 right-0 z-50">
+      <nav className="bg-white shadow-sm h-[6.25rem]">
       <div className="container-custom h-full flex items-center justify-between">
-        {/* Logo - JJ construccion */}
+        {/* Logo JJ Construcción */}
         <Link
           to="/"
-          className="text-lg font-bold text-[#1e5631] transition-opacity hover:opacity-80"
+          className="flex items-center shrink-0 transition-opacity hover:opacity-90"
+          aria-label="JJ Construcción - Inicio"
         >
-          JJ construccion
+          <img
+            src="/logo.png"
+            alt="JJ Construcción"
+            className="h-[6rem] w-auto max-h-[6.25rem] object-contain object-left"
+          />
         </Link>
 
         {/* Desktop Navigation */}
@@ -126,10 +131,19 @@ export function Navbar() {
           </Button>
         </div>
       </div>
+    </nav>
+
+      {/* Barra de envío destacada */}
+      <div className="bg-[#1e5631] text-white py-2 px-4 flex items-center justify-center gap-2 shadow-md">
+        <Truck className="w-5 h-5 flex-shrink-0" />
+        <span className="font-bold text-sm uppercase tracking-wide text-center">
+          Envío de 3 a 5 días a todo nivel nacional
+        </span>
+      </div>
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="md:hidden absolute top-[4.5rem] left-0 right-0 bg-white shadow-lg border-t border-gray-200">
+        <div className="md:hidden absolute top-[calc(6.25rem+2.5rem)] left-0 right-0 bg-white shadow-lg border-t border-gray-200">
           <div className="flex flex-col p-4">
             {navLinks.map((link) => (
               <Link
@@ -168,6 +182,6 @@ export function Navbar() {
           </div>
         </div>
       )}
-    </nav>
+    </header>
   );
 }

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { ShoppingCart, Check, Star } from 'lucide-react';
 import { useState } from 'react';
 import type { Product, ProductTag } from '@/types';
@@ -29,8 +30,10 @@ export function ProductCard({ product }: ProductCardProps) {
   const isInCart = items.some((item) => item.product.id === product.id);
   const showSaleBadge = product.tag === 'SALE' || product.originalPrice != null;
   const rating = product.rating ?? 4.5;
+  const outOfStock = product.stock <= 0;
 
   const handleAddToCart = () => {
+    if (outOfStock) return;
     addToCart(product);
     setShowAddedMessage(true);
     setTimeout(() => setShowAddedMessage(false), 2000);
@@ -38,25 +41,42 @@ export function ProductCard({ product }: ProductCardProps) {
 
   return (
     <div className="card-product group h-full flex flex-col min-h-[380px]">
-      {/* Product Image - tamaño fijo */}
-      <div className="relative aspect-square w-full flex-shrink-0 bg-[#f8f8f8] rounded-md overflow-hidden">
-        <img
-          src={product.image}
-          alt={product.name}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-        />
-        {showSaleBadge && (
-          <span className="absolute top-2 left-2 bg-[#e85d04] text-white text-xs font-bold uppercase px-2 py-1 rounded">
-            OFERTA
-          </span>
-        )}
-      </div>
+      {/* Product Image - enlace al detalle; si no hay stock se muestra imagen "Próximamente" */}
+      <Link to={`/producto/${product.id}`} className="block flex-shrink-0">
+        <div className="relative aspect-square w-full bg-[#f8f8f8] rounded-md overflow-hidden">
+          {outOfStock ? (
+            <img
+              src="/out-of-stock.png"
+              alt="Próximamente"
+              className="w-full h-full object-contain bg-[#f8f8f8] p-2"
+            />
+          ) : (
+            <img
+              src={product.image}
+              alt={product.name}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          )}
+          {!outOfStock && showSaleBadge && (
+            <span className="absolute top-2 left-2 bg-[#e85d04] text-white text-xs font-bold uppercase px-2 py-1 rounded">
+              OFERTA
+            </span>
+          )}
+          {outOfStock && (
+            <span className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold uppercase px-2 py-1 rounded">
+              Sin stock
+            </span>
+          )}
+        </div>
+      </Link>
 
-      {/* Product Info - ocupa el resto y empuja el botón abajo */}
+      {/* Product Info - título enlaza al detalle */}
       <div className="flex-1 flex flex-col pt-4 min-h-0">
-        <h3 className="text-[#333] font-bold line-clamp-2 min-h-[2.75rem]">
-          {product.name}
-        </h3>
+        <Link to={`/producto/${product.id}`} className="hover:underline focus:outline-none">
+          <h3 className="text-[#333] font-bold line-clamp-2 min-h-[2.75rem]">
+            {product.name}
+          </h3>
+        </Link>
         <div className="flex items-center gap-1.5 text-gray-500 text-sm mt-1">
           <Star className="w-4 h-4 fill-amber-400 text-amber-400 flex-shrink-0" />
           <span>{rating}</span>
@@ -87,14 +107,18 @@ export function ProductCard({ product }: ProductCardProps) {
 
         <Button
           onClick={handleAddToCart}
-          disabled={showAddedMessage}
+          disabled={showAddedMessage || outOfStock}
           className={`w-full mt-auto pt-3 transition-all flex-shrink-0 ${
-            showAddedMessage
-              ? 'bg-[#2d9d5f] hover:bg-[#2d9d5f]'
-              : 'bg-[#333] hover:bg-[#444] text-white font-bold uppercase text-sm'
+            outOfStock
+              ? 'bg-gray-400 cursor-not-allowed text-white font-bold uppercase text-sm'
+              : showAddedMessage
+                ? 'bg-[#2d9d5f] hover:bg-[#2d9d5f]'
+                : 'bg-[#333] hover:bg-[#444] text-white font-bold uppercase text-sm'
           }`}
         >
-          {showAddedMessage ? (
+          {outOfStock ? (
+            <>Próximamente</>
+          ) : showAddedMessage ? (
             <>
               <Check className="w-4 h-4 mr-2" />
               Añadido

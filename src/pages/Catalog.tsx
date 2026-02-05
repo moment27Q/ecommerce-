@@ -105,7 +105,7 @@ export function Catalog() {
   const showingText = `Mostrando ${from}-${to} de ${totalProducts} productos`;
 
   return (
-    <div className="min-h-screen bg-white pt-[4.5rem]">
+    <div className="min-h-screen bg-white pt-[8.75rem]">
       {/* Hero Banner - Dark green */}
       <div className="max-w-[80rem] mx-auto px-[5%] mt-6 mb-6">
         <div className="bg-[#1e5631] rounded-xl py-10 px-6 md:py-12 md:px-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
