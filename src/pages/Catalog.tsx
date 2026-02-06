@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { ProductCard } from '@/components/product/ProductCard';
@@ -32,7 +32,7 @@ const categoryToSidebar: Record<string, string> = {
 };
 
 export function Catalog() {
-  const { products, fetchProducts } = useProductsStore();
+  const { products, loading, error, fetchProducts } = useProductsStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [offersByProductId, setOffersByProductId] = useState<Record<string, CatalogOffer>>({});
 
@@ -66,52 +66,36 @@ export function Catalog() {
   const [selectedSidebarCats, setSelectedSidebarCats] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [sortBy, setSortBy] = useState<'newest' | 'price-asc' | 'price-desc' | 'name'>('newest');
-  const observerRef = useRef<IntersectionObserver | null>(null);
 
-  useEffect(() => {
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('animate-slideInBottom');
-            entry.target.classList.remove('opacity-0');
-            observerRef.current?.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.1 }
-    );
-    const elements = document.querySelectorAll('.animate-on-scroll');
-    elements.forEach((el) => {
-      el.classList.add('opacity-0');
-      observerRef.current?.observe(el);
-    });
-    return () => observerRef.current?.disconnect();
-  }, []);
-
-  const filteredProducts = products
+  const productList = Array.isArray(products) ? products : [];
+  const filteredProducts = productList
+    .filter((product) => product && typeof product === 'object' && product.id != null)
     .filter((product) => {
       const q = searchQuery.toLowerCase().trim();
+      const name = product.name != null ? String(product.name) : '';
+      const desc = product.description != null ? String(product.description) : '';
+      const cat = product.category != null ? String(product.category) : '';
       const matchesSearch =
         !q ||
-        product.name.toLowerCase().includes(q) ||
-        product.description?.toLowerCase().includes(q) ||
-        product.category.toLowerCase().includes(q);
-      const sidebarCat = categoryToSidebar[product.category];
+        name.toLowerCase().includes(q) ||
+        desc.toLowerCase().includes(q) ||
+        cat.toLowerCase().includes(q);
+      const sidebarCat = categoryToSidebar[cat];
       const matchesCategory =
         selectedSidebarCats.length === 0 || (sidebarCat && selectedSidebarCats.includes(sidebarCat));
-      const matchesPrice =
-        product.price >= priceRange[0] && product.price <= priceRange[1];
+      const maxPrice = priceRange[1] >= 1000 ? Infinity : priceRange[1];
+      const price = Number(product.price);
+      const matchesPrice = !Number.isNaN(price) && price >= priceRange[0] && price <= maxPrice;
       return matchesSearch && matchesCategory && matchesPrice;
     })
     .sort((a, b) => {
       switch (sortBy) {
         case 'price-asc':
-          return a.price - b.price;
+          return (Number(a.price) || 0) - (Number(b.price) || 0);
         case 'price-desc':
-          return b.price - a.price;
+          return (Number(b.price) || 0) - (Number(a.price) || 0);
         case 'name':
-          return a.name.localeCompare(b.name);
+          return String(a.name || '').localeCompare(String(b.name || ''));
         default:
           return 0;
       }
@@ -123,10 +107,10 @@ export function Catalog() {
     );
   };
 
-  const totalProducts = products.length;
-  const from = filteredProducts.length === 0 ? 0 : 1;
-  const to = filteredProducts.length;
-  const showingText = `Mostrando ${from}-${to} de ${totalProducts} productos`;
+  const totalFiltered = filteredProducts.length;
+  const from = totalFiltered === 0 ? 0 : 1;
+  const to = totalFiltered;
+  const showingText = `Mostrando ${from}-${to} de ${totalFiltered} productos`;
 
   return (
     <div className="min-h-screen bg-white pt-[8.75rem]">
@@ -167,7 +151,7 @@ export function Catalog() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input
                     type="text"
-                    placeholder="Cement, shovels..."
+                    placeholder="Cemento, palas..."
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -238,7 +222,20 @@ export function Catalog() {
               </div>
             </div>
 
-            {filteredProducts.length === 0 ? (
+            {loading && productList.length === 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch" aria-busy="true">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="animate-pulse rounded-lg bg-gray-200 border border-gray-300 h-80" />
+                ))}
+              </div>
+            ) : error && productList.length === 0 ? (
+              <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
+                <p className="text-[#333] mb-4">{error}</p>
+                <Button onClick={() => fetchProducts()} className="bg-[#1e5631] hover:bg-[#164a28] text-white">
+                  Reintentar
+                </Button>
+              </div>
+            ) : filteredProducts.length === 0 ? (
               <div className="text-center py-16 bg-white rounded-lg">
                 <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-xl font-bold text-[#333] mb-2">No se encontraron productos</h3>
@@ -249,6 +246,7 @@ export function Catalog() {
                     setSelectedSidebarCats([]);
                     setPriceRange([0, 1000]);
                     setSearchParams({});
+                    fetchProducts();
                   }}
                   className="bg-[#1e5631] hover:bg-[#164a28] text-white"
                 >
@@ -257,12 +255,8 @@ export function Catalog() {
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
-                {filteredProducts.map((product, index) => (
-                  <div
-                    key={product.id}
-                    className="animate-on-scroll"
-                    style={{ animationDelay: `${index * 50}ms` }}
-                  >
+                {filteredProducts.map((product) => (
+                  <div key={product.id}>
                     <ProductCard product={product} offer={offersByProductId[product.id]} />
                   </div>
                 ))}

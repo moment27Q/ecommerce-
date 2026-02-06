@@ -21,8 +21,8 @@ interface CatalogOffer {
 }
 
 export function Home() {
-  const { products, fetchProducts } = useProductsStore();
-  const featuredProducts = products.slice(0, 8);
+  const { products, loading, error, fetchProducts } = useProductsStore();
+  const featuredProducts = Array.isArray(products) ? products.slice(0, 8) : [];
   const [heroIndex, setHeroIndex] = useState(0);
   const [heroSlides, setHeroSlides] = useState<{ src: string; alt: string }[]>([]);
   const [offersByProductId, setOffersByProductId] = useState<Record<string, CatalogOffer>>({});
@@ -96,7 +96,7 @@ export function Home() {
     });
 
     return () => observerRef.current?.disconnect();
-  }, []);
+  }, [featuredProducts.length]);
 
   const getIcon = (iconName: string) => {
     const icons: Record<string, React.ElementType> = {
@@ -260,17 +260,39 @@ export function Home() {
               </Button>
             </Link>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
-            {featuredProducts.map((product, index) => (
-              <div
-                key={product.id}
-                className="animate-on-scroll"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <ProductCard product={product} offer={offersByProductId[product.id]} />
-              </div>
-            ))}
-          </div>
+          {loading && featuredProducts.length === 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch" aria-busy="true">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="animate-pulse rounded-lg bg-[#f8f0ed] h-80" />
+              ))}
+            </div>
+          ) : error && featuredProducts.length === 0 ? (
+            <div className="text-center py-16 bg-[#f8f0ed] rounded-lg">
+              <p className="text-[#333] mb-4">{error}</p>
+              <Button onClick={() => fetchProducts()} className="bg-[#946545] hover:bg-[#7a5337] text-white">
+                Reintentar
+              </Button>
+            </div>
+          ) : featuredProducts.length === 0 ? (
+            <div className="text-center py-16 bg-[#f8f0ed] rounded-lg text-[#333]">
+              <p>No hay productos destacados en este momento.</p>
+              <Link to="/catalogo" className="inline-block mt-4">
+                <Button variant="outline" className="btn-secondary">Ver catálogo</Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+              {featuredProducts.map((product, index) => (
+                <div
+                  key={product.id}
+                  className="animate-on-scroll"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <ProductCard product={product} offer={offersByProductId[product.id]} />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
     </div>

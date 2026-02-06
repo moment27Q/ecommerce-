@@ -21,24 +21,28 @@ interface ProductsState {
   fetchProducts: () => Promise<void>;
 }
 
-export const useProductsStore = create<ProductsState>((set) => ({
+export const useProductsStore = create<ProductsState>((set, get) => ({
   products: [],
   loading: false,
   error: null,
 
   fetchProducts: async () => {
+    const state = get();
+    if (state.loading) return;
     set({ loading: true, error: null });
     try {
       const res = await fetch(`${API}/products`);
       if (!res.ok) throw new Error('Error al cargar productos');
       const data = await res.json();
-      set({ products: data, loading: false });
+      const list = Array.isArray(data) ? data : [];
+      set({ products: list, loading: false, error: null });
     } catch (e) {
-      set({
+      const errMsg = e instanceof Error ? e.message : 'Error desconocido';
+      set((prev) => ({
         loading: false,
-        error: e instanceof Error ? e.message : 'Error desconocido',
-        products: [],
-      });
+        error: errMsg,
+        products: prev.products.length > 0 ? prev.products : [],
+      }));
     }
   },
 }));

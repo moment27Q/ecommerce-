@@ -1603,6 +1603,42 @@ export function Admin() {
                 placeholder="/hero-banner.jpg o https://..."
               />
             </div>
+            <div className="relative flex items-center gap-2">
+              <span className="text-sm text-gray-500">o</span>
+              <div className="h-px flex-1 bg-gray-200" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Subir desde tu equipo</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  id="slide-file-upload"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !file.type.startsWith('image/')) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const result = reader.result;
+                      if (typeof result === 'string') setSlideForm((f) => ({ ...f, image: result }));
+                    };
+                    reader.readAsDataURL(file);
+                    e.target.value = '';
+                  }}
+                />
+                <Label
+                  htmlFor="slide-file-upload"
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[#1e5631] bg-[#1e5631]/5 px-4 py-2 text-sm font-medium text-[#1e5631] hover:bg-[#1e5631]/10"
+                >
+                  <Upload className="w-4 h-4" />
+                  Elegir archivo
+                </Label>
+                {slideForm.image && slideForm.image.startsWith('data:') && (
+                  <span className="text-xs text-green-600">Imagen seleccionada</span>
+                )}
+              </div>
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="slide-alt">Texto alternativo (opcional)</Label>
               <Input
