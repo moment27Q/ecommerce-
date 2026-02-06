@@ -107,7 +107,7 @@ export function ProductDetail() {
       .then((res) => (res.ok ? res.json() : []))
       .then((data) => {
         if (cancelled || !Array.isArray(data)) return;
-        const o = data.find((x: { productId: string }) => x.productId === product.id);
+        const o = data.find((x: { productId: string | number }) => String(x.productId) === String(product.id));
         if (o) setOffer({ validUntil: o.validUntil ?? null, discountPercent: o.discountPercent });
         else setOffer(null);
       })
@@ -131,9 +131,10 @@ export function ProductDetail() {
   const getQty = () => Math.min(Math.max(1, quantity), product?.stock ?? 1);
 
   const hasOffer = offer != null;
+  const basePrice = Number(product?.price) ?? 0;
   const displayPrice = hasOffer && product
-    ? Math.round(product.price * (1 - offer.discountPercent / 100) * 100) / 100
-    : product?.price ?? 0;
+    ? Math.round(basePrice * (1 - (Number(offer.discountPercent) || 0) / 100) * 100) / 100
+    : basePrice;
   const productToAdd = hasOffer && product
     ? { ...product, price: displayPrice }
     : product!;

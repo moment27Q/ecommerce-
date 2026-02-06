@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard,
+  LayoutGrid,
   ShoppingBag,
   Package,
   Eye,
@@ -53,7 +54,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import type { Order, Product, ProductTag } from '@/types';
 
-type AdminSection = 'dashboard' | 'orders' | 'products' | 'carousel' | 'offers';
+type AdminSection = 'dashboard' | 'orders' | 'products' | 'carousel' | 'promoBanners' | 'offers';
 
 export interface Offer {
   id: number;
@@ -80,6 +81,14 @@ export interface CarouselSlide {
   id: number;
   src: string;
   alt: string;
+  sortOrder: number;
+}
+
+export interface PromoBanner {
+  id: number;
+  image: string;
+  title: string;
+  description: string;
   sortOrder: number;
 }
 
@@ -127,6 +136,15 @@ export function Admin() {
   const [slideForm, setSlideForm] = useState({ image: '', alt: '' });
   const [slideSaving, setSlideSaving] = useState(false);
   const [slideToDelete, setSlideToDelete] = useState<CarouselSlide | null>(null);
+
+  const [promoBanners, setPromoBanners] = useState<PromoBanner[]>([]);
+  const [promoBannersLoading, setPromoBannersLoading] = useState(false);
+  const [promoBannerDialogOpen, setPromoBannerDialogOpen] = useState(false);
+  const [editingPromoBannerId, setEditingPromoBannerId] = useState<number | null>(null);
+  const [promoBannerForm, setPromoBannerForm] = useState({ image: '', title: '', description: '' });
+  const [promoBannerSaving, setPromoBannerSaving] = useState(false);
+  const [promoBannerError, setPromoBannerError] = useState<string | null>(null);
+  const [promoBannerToDelete, setPromoBannerToDelete] = useState<PromoBanner | null>(null);
 
   const [offers, setOffers] = useState<Offer[]>([]);
   const [offersLoading, setOffersLoading] = useState(false);
@@ -199,6 +217,24 @@ export function Admin() {
   useEffect(() => {
     if (section === 'carousel') loadCarousel();
   }, [section, loadCarousel]);
+
+  const loadPromoBanners = useCallback(async () => {
+    setPromoBannersLoading(true);
+    try {
+      const res = await fetch(`${API}/promo-banners`);
+      if (!res.ok) throw new Error('Error al cargar banners');
+      const data = await res.json();
+      setPromoBanners(data);
+    } catch {
+      setPromoBanners([]);
+    } finally {
+      setPromoBannersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (section === 'promoBanners') loadPromoBanners();
+  }, [section, loadPromoBanners]);
 
   const loadOffers = useCallback(async () => {
     setOffersLoading(true);
@@ -552,6 +588,139 @@ export function Admin() {
     }
   };
 
+  const openAddPromoBanner = () => {
+    setEditingPromoBannerId(null);
+    setPromoBannerForm({ image: '', title: '', description: '' });
+    setPromoBannerError(null);
+    setPromoBannerDialogOpen(true);
+  };
+
+  const openEditPromoBanner = (banner: PromoBanner) => {
+    setEditingPromoBannerId(banner.id);
+    setPromoBannerForm({ image: banner.image, title: banner.title, description: banner.description });
+    setPromoBannerError(null);
+    setPromoBannerDialogOpen(true);
+  };
+
+  const handleSavePromoBanner = async (e?: React.MouseEvent) => {
+    e?.preventDefault?.();
+    if (!promoBannerForm.image.trim()) return;
+    setPromoBannerSaving(true);
+    setPromoBannerError(null);
+    try {
+      if (editingPromoBannerId != null) {
+        const res = await fetchWithAuth(`${API}/promo-banners/${editingPromoBannerId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image: promoBannerForm.image.trim(),
+            title: promoBannerForm.title.trim(),
+            description: promoBannerForm.description.trim(),
+          }),
+        });
+        if (res.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        if (!res.ok) {
+          const text = await res.text();
+          let msg = `Error al actualizar (${res.status})`;
+          try {
+            const err = JSON.parse(text);
+            if (err && typeof err.error === 'string') msg = err.error;
+          } catch {
+            if (text && text.length < 200) msg = text;
+          }
+          throw new Error(msg);
+        }
+      } else {
+        const res = await fetchWithAuth(`${API}/promo-banners`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image: promoBannerForm.image.trim(),
+            title: promoBannerForm.title.trim(),
+            description: promoBannerForm.description.trim(),
+          }),
+        });
+        if (res.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        if (!res.ok) {
+          const text = await res.text();
+          if (text.trimStart().startsWith('<!') || text.includes('Cannot POST') || text.includes('Cannot GET')) {
+            throw new Error('El servidor no tiene la ruta de banners. Para el servidor (Ctrl+C) y vuelve a ejecutar en la carpeta server: npm start o node index.js');
+          }
+          let msg = `Error al crear (${res.status})`;
+          try {
+            const err = JSON.parse(text);
+            if (err && typeof err.error === 'string') msg = err.error;
+          } catch {
+            if (text && text.length < 200) msg = text;
+          }
+          if (typeof msg === 'string' && (msg.includes('no such table') || msg.includes('promo_banners'))) {
+            throw new Error('La base de datos no tiene la tabla de banners. Reinicia el servidor (carpeta server).');
+          }
+          throw new Error(msg);
+        }
+      }
+      setPromoBannerDialogOpen(false);
+      setPromoBannerForm({ image: '', title: '', description: '' });
+      setEditingPromoBannerId(null);
+      await loadPromoBanners();
+    } catch (err) {
+      console.error(err);
+      setPromoBannerError(err instanceof Error ? err.message : 'Error al guardar');
+    } finally {
+      setPromoBannerSaving(false);
+    }
+  };
+
+  const movePromoBanner = async (index: number, direction: 'up' | 'down') => {
+    const newOrder = [...promoBanners];
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= newOrder.length) return;
+    [newOrder[index], newOrder[target]] = [newOrder[target], newOrder[index]];
+    const orderIds = newOrder.map((b) => b.id);
+    try {
+      const res = await fetchWithAuth(`${API}/promo-banners/reorder`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: orderIds }),
+      });
+      if (res.status === 401) {
+        logout();
+        navigate('/login');
+        return;
+      }
+      if (!res.ok) throw new Error('Error al reordenar');
+      const data = await res.json();
+      setPromoBanners(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const confirmDeletePromoBanner = async () => {
+    if (!promoBannerToDelete) return;
+    try {
+      const res = await fetchWithAuth(`${API}/promo-banners/${promoBannerToDelete.id}`, { method: 'DELETE' });
+      if (res.status === 401) {
+        logout();
+        navigate('/login');
+        return;
+      }
+      if (!res.ok) throw new Error('Error al eliminar');
+      setPromoBannerToDelete(null);
+      await loadPromoBanners();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const openAddOffer = async () => {
     setEditingOfferId(null);
     setOfferForm({ productId: '', discountPercent: 10, validUntil: '' });
@@ -698,6 +867,16 @@ export function Admin() {
                 <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
                 <ImageIcon className="w-5 h-5 shrink-0" />
                 <span className="min-w-0 flex-1">Carrusel</span>
+              </button>
+              <button
+                onClick={() => setSection('promoBanners')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
+                  section === 'promoBanners' ? 'bg-white/20' : 'hover:bg-white/10'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
+                <LayoutGrid className="w-5 h-5 shrink-0" />
+                <span className="min-w-0 flex-1">Banners promocionales</span>
               </button>
               <button
                 onClick={() => setSection('offers')}
@@ -1217,7 +1396,9 @@ export function Admin() {
                           onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="64" viewBox="0 0 96 64"><rect fill="%23eee" width="96" height="64"/><text x="50%" y="50%" fill="%23999" text-anchor="middle" dy=".3em" font-size="10">Sin imagen</text></svg>'; }}
                         />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-[#333] truncate">{slide.src}</p>
+                          <p className="text-sm font-medium text-[#333] truncate" title={slide.src.startsWith('data:') ? undefined : slide.src}>
+                            {slide.src.startsWith('data:') ? 'Imagen subida (base64)' : slide.src.length > 50 ? `${slide.src.slice(0, 50)}…` : slide.src}
+                          </p>
                           {slide.alt && <p className="text-xs text-gray-500 truncate">{slide.alt}</p>}
                         </div>
                         <div className="flex gap-2 shrink-0">
@@ -1233,6 +1414,89 @@ export function Admin() {
                             variant="outline"
                             size="sm"
                             onClick={() => setSlideToDelete(slide)}
+                            className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* ========== BANNERS PROMOCIONALES (carrusel debajo del hero) ========== */}
+          {section === 'promoBanners' && (
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <h1 className="text-2xl font-bold text-[#333]">Banners promocionales</h1>
+                <Button
+                  onClick={openAddPromoBanner}
+                  className="bg-[#1e5631] hover:bg-[#164a28] text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Añadir banner
+                </Button>
+              </div>
+              <p className="text-gray-600 mb-6">
+                Estos banners se muestran en la portada debajo del carrusel principal y rotan cada 6 segundos. Cada uno tiene título y descripción (ej. &quot;Envío Gratis&quot; / &quot;En compras mayores a S/500&quot;).
+              </p>
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                {promoBannersLoading ? (
+                  <div className="p-12 text-center text-gray-500">Cargando banners...</div>
+                ) : promoBanners.length === 0 ? (
+                  <div className="p-12 text-center text-gray-500">
+                    No hay banners. Añade el primero con el botón superior.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {promoBanners.map((banner, index) => (
+                      <li key={banner.id} className="flex items-center gap-4 p-4 hover:bg-gray-50">
+                        <div className="flex flex-col gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => movePromoBanner(index, 'up')}
+                            disabled={index === 0}
+                            className="p-1 text-gray-400 hover:text-[#333] disabled:opacity-30"
+                            aria-label="Subir"
+                          >
+                            <ChevronUp className="w-5 h-5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => movePromoBanner(index, 'down')}
+                            disabled={index === promoBanners.length - 1}
+                            className="p-1 text-gray-400 hover:text-[#333] disabled:opacity-30"
+                            aria-label="Bajar"
+                          >
+                            <ChevronDown className="w-5 h-5" />
+                          </button>
+                        </div>
+                        <img
+                          src={banner.image}
+                          alt={banner.title}
+                          className="w-24 h-16 object-cover rounded border border-gray-200 bg-gray-100"
+                          onError={(e) => { (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="96" height="64" viewBox="0 0 96 64"><rect fill="%23eee" width="96" height="64"/><text x="50%" y="50%" fill="%23999" text-anchor="middle" dy=".3em" font-size="10">Sin imagen</text></svg>'; }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-[#333] truncate">{banner.title || 'Sin título'}</p>
+                          <p className="text-xs text-gray-500 truncate">{banner.description || 'Sin descripción'}</p>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditPromoBanner(banner)}
+                            className="border-[#1e5631] text-[#1e5631] hover:bg-[#1e5631] hover:text-white"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setPromoBannerToDelete(banner)}
                             className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1663,6 +1927,111 @@ export function Admin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal añadir/editar banner promocional */}
+      <Dialog open={promoBannerDialogOpen} onOpenChange={(open) => { setPromoBannerDialogOpen(open); if (!open) setPromoBannerError(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingPromoBannerId ? 'Editar banner promocional' : 'Añadir banner promocional'}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {promoBannerError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{promoBannerError}</p>
+            )}
+            <div className="grid gap-2">
+              <Label htmlFor="promo-image">URL de la imagen *</Label>
+              <Input
+                id="promo-image"
+                value={promoBannerForm.image}
+                onChange={(e) => setPromoBannerForm((f) => ({ ...f, image: e.target.value }))}
+                placeholder="/promo-tools.jpg o https://..."
+              />
+            </div>
+            <div className="relative flex items-center gap-2">
+              <span className="text-sm text-gray-500">o</span>
+              <div className="h-px flex-1 bg-gray-200" />
+            </div>
+            <div className="grid gap-2">
+              <Label>Subir desde tu equipo</Label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  id="promo-banner-file"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !file.type.startsWith('image/')) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const result = reader.result;
+                      if (typeof result === 'string') setPromoBannerForm((f) => ({ ...f, image: result }));
+                    };
+                    reader.readAsDataURL(file);
+                    e.target.value = '';
+                  }}
+                />
+                <Label
+                  htmlFor="promo-banner-file"
+                  className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-[#1e5631] bg-[#1e5631]/5 px-4 py-2 text-sm font-medium text-[#1e5631] hover:bg-[#1e5631]/10"
+                >
+                  <Upload className="w-4 h-4" />
+                  Elegir archivo
+                </Label>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="promo-title">Título *</Label>
+              <Input
+                id="promo-title"
+                value={promoBannerForm.title}
+                onChange={(e) => setPromoBannerForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder="Ej. Envío Gratis"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="promo-desc">Descripción</Label>
+              <Input
+                id="promo-desc"
+                value={promoBannerForm.description}
+                onChange={(e) => setPromoBannerForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder="Ej. En compras mayores a S/500"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPromoBannerDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={(e) => handleSavePromoBanner(e)}
+              disabled={promoBannerSaving || !promoBannerForm.image.trim()}
+              className="bg-[#1e5631] hover:bg-[#164a28]"
+            >
+              {promoBannerSaving ? 'Guardando...' : editingPromoBannerId ? 'Guardar cambios' : 'Añadir'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmar eliminar banner promocional */}
+      <AlertDialog open={!!promoBannerToDelete} onOpenChange={() => setPromoBannerToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Quitar este banner del carrusel promocional?</AlertDialogTitle>
+            <AlertDialogDescription>
+              El banner se eliminará de la sección promocional de la portada.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeletePromoBanner} className="bg-red-600 hover:bg-red-700">
+              Eliminar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Confirmar eliminar slide */}
       <AlertDialog open={!!slideToDelete} onOpenChange={() => setSlideToDelete(null)}>

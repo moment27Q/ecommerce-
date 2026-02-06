@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { db, initDb } from './db.js';
+import { db, initDb, ensurePromoBannersTable } from './db.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'clave-secreta-cambiar-en-produccion';
 const PORT = process.env.PORT || 3001;
@@ -165,6 +165,63 @@ app.patch('/api/carousel/reorder', authMiddleware, (req, res) => {
   });
   const rows = db.prepare('SELECT id, image, alt, sort_order AS sortOrder FROM carousel_slides ORDER BY sort_order ASC').all();
   res.json(rows.map((r) => ({ id: r.id, src: r.image, alt: r.alt || '', sortOrder: r.sortOrder })));
+});
+
+// Banners promocionales (público)
+app.get('/api/promo-banners', (req, res) => {
+  const rows = db.prepare('SELECT id, image, title, description, sort_order AS sortOrder FROM promo_banners ORDER BY sort_order ASC').all();
+  res.json(rows.map((r) => ({ id: r.id, image: r.image, title: r.title || '', description: r.description || '', sortOrder: r.sortOrder })));
+});
+
+// Banners promocionales (admin)
+app.post('/api/promo-banners', authMiddleware, (req, res) => {
+  ensurePromoBannersTable();
+  try {
+    const { image, title, description } = req.body || {};
+    if (!image || typeof image !== 'string' || !image.trim()) return res.status(400).json({ error: 'URL de imagen requerida' });
+    const count = db.prepare('SELECT COUNT(*) as n FROM promo_banners').get();
+    const sortOrder = count.n;
+    db.prepare('INSERT INTO promo_banners (image, title, description, sort_order) VALUES (?, ?, ?, ?)')
+      .run(image.trim(), (title && String(title).trim()) || '', (description && String(description).trim()) || '', sortOrder);
+    const row = db.prepare('SELECT id, image, title, description, sort_order AS sortOrder FROM promo_banners ORDER BY id DESC LIMIT 1').get();
+    res.status(201).json({ id: row.id, image: row.image, title: row.title || '', description: row.description || '', sortOrder: row.sortOrder });
+  } catch (err) {
+    console.error('POST /api/promo-banners:', err);
+    const msg = err && err.message ? err.message : 'Error al crear el banner';
+    res.status(500).json({ error: msg });
+  }
+});
+
+app.put('/api/promo-banners/:id', authMiddleware, (req, res) => {
+  const { id } = req.params;
+  const { image, title, description, sortOrder } = req.body || {};
+  const existing = db.prepare('SELECT * FROM promo_banners WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Banner no encontrado' });
+  db.prepare('UPDATE promo_banners SET image = ?, title = ?, description = ?, sort_order = ? WHERE id = ?')
+    .run(image != null ? String(image).trim() : existing.image, title !== undefined ? String(title || '').trim() : existing.title, description !== undefined ? String(description || '').trim() : existing.description, sortOrder != null ? Number(sortOrder) : existing.sort_order, id);
+  const row = db.prepare('SELECT id, image, title, description, sort_order AS sortOrder FROM promo_banners WHERE id = ?').get(id);
+  res.json({ id: row.id, image: row.image, title: row.title || '', description: row.description || '', sortOrder: row.sortOrder });
+});
+
+app.delete('/api/promo-banners/:id', authMiddleware, (req, res) => {
+  const { id } = req.params;
+  const result = db.prepare('DELETE FROM promo_banners WHERE id = ?').run(id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Banner no encontrado' });
+  const rows = db.prepare('SELECT id, sort_order FROM promo_banners ORDER BY sort_order ASC').all();
+  rows.forEach((row, i) => {
+    if (row.sort_order !== i) db.prepare('UPDATE promo_banners SET sort_order = ? WHERE id = ?').run(i, row.id);
+  });
+  res.status(204).send();
+});
+
+app.patch('/api/promo-banners/reorder', authMiddleware, (req, res) => {
+  const { order } = req.body || {};
+  if (!Array.isArray(order) || order.length === 0) return res.status(400).json({ error: 'order debe ser un array de ids' });
+  order.forEach((id, i) => {
+    db.prepare('UPDATE promo_banners SET sort_order = ? WHERE id = ?').run(i, id);
+  });
+  const rows = db.prepare('SELECT id, image, title, description, sort_order AS sortOrder FROM promo_banners ORDER BY sort_order ASC').all();
+  res.json(rows.map((r) => ({ id: r.id, image: r.image, title: r.title || '', description: r.description || '', sortOrder: r.sortOrder })));
 });
 
 // Ofertas (público): solo ofertas activas con datos del producto

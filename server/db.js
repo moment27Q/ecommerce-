@@ -60,6 +60,14 @@ export function initDb() {
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS promo_banners (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      image TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
     CREATE TABLE IF NOT EXISTS offers (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       product_id TEXT NOT NULL,
@@ -67,6 +75,20 @@ export function initDb() {
       valid_until TEXT,
       created_at TEXT DEFAULT (datetime('now')),
       FOREIGN KEY (product_id) REFERENCES products(id)
+    );
+  `);
+}
+
+/** Asegura que la tabla promo_banners exista (por si el servidor no se reinició tras añadirla). */
+export function ensurePromoBannersTable() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS promo_banners (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      image TEXT NOT NULL,
+      title TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
     );
   `);
 }

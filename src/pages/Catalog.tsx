@@ -47,8 +47,8 @@ export function Catalog() {
       .then((data) => {
         if (cancelled || !Array.isArray(data)) return;
         const map: Record<string, CatalogOffer> = {};
-        data.forEach((o: { productId: string; validUntil?: string; discountPercent: number }) => {
-          map[o.productId] = { validUntil: o.validUntil ?? null, discountPercent: o.discountPercent };
+        data.forEach((o: { productId: string | number; validUntil?: string; discountPercent: number }) => {
+          map[String(o.productId)] = { validUntil: o.validUntil ?? null, discountPercent: o.discountPercent };
         });
         setOffersByProductId(map);
       })
@@ -257,7 +257,7 @@ export function Catalog() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 items-stretch">
                 {filteredProducts.map((product) => (
                   <div key={product.id}>
-                    <ProductCard product={product} offer={offersByProductId[product.id]} />
+                    <ProductCard product={product} offer={offersByProductId[String(product.id)]} />
                   </div>
                 ))}
               </div>

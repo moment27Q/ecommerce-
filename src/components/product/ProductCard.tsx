@@ -65,20 +65,22 @@ export function ProductCard({ product, offer }: ProductCardProps) {
   const showSaleBadge = hasOffer || product.tag === 'SALE' || product.originalPrice != null;
   const rating = product.rating ?? 4.5;
   const outOfStock = product.stock <= 0;
-  const alreadyDiscounted = product.originalPrice != null && hasOffer;
+  const basePrice = Number(product.price) || 0;
+  const productOriginalPrice = product.originalPrice != null ? Number(product.originalPrice) : null;
+  const alreadyDiscounted = productOriginalPrice != null && productOriginalPrice > 0 && hasOffer && basePrice < productOriginalPrice;
   const displayPrice =
     hasOffer && offer
       ? alreadyDiscounted
-        ? product.price
-        : Math.round(product.price * (1 - offer.discountPercent / 100) * 100) / 100
-      : product.price;
-  const showOriginalPrice = hasOffer && offer ? true : product.originalPrice != null;
+        ? basePrice
+        : Math.round(basePrice * (1 - (Number(offer.discountPercent) || 0) / 100) * 100) / 100
+      : basePrice;
+  const showOriginalPrice = hasOffer && offer ? true : productOriginalPrice != null;
   const originalPrice =
     hasOffer && offer
       ? alreadyDiscounted
-        ? product.originalPrice ?? product.price
-        : product.price
-      : product.originalPrice ?? null;
+        ? productOriginalPrice ?? basePrice
+        : basePrice
+      : productOriginalPrice;
 
   const productToAdd = hasOffer && offer ? { ...product, price: displayPrice } : product;
 

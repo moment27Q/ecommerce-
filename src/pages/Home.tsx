@@ -13,7 +13,16 @@ const HERO_SLIDES_FALLBACK = [
   { src: '/promo-shipping.jpg', alt: 'Envíos' },
 ];
 const HERO_INTERVAL_MS = 5000;
+const PROMO_CAROUSEL_INTERVAL_MS = 6000;
 const API = '/api';
+
+interface PromoBannerItem {
+  id: number;
+  image: string;
+  title: string;
+  description: string;
+  sortOrder: number;
+}
 
 interface CatalogOffer {
   validUntil: string | null;
@@ -25,6 +34,8 @@ export function Home() {
   const featuredProducts = Array.isArray(products) ? products.slice(0, 8) : [];
   const [heroIndex, setHeroIndex] = useState(0);
   const [heroSlides, setHeroSlides] = useState<{ src: string; alt: string }[]>([]);
+  const [promoBanners, setPromoBanners] = useState<PromoBannerItem[]>([]);
+  const [promoIndex, setPromoIndex] = useState(0);
   const [offersByProductId, setOffersByProductId] = useState<Record<string, CatalogOffer>>({});
 
   useEffect(() => {
@@ -38,8 +49,8 @@ export function Home() {
       .then((data) => {
         if (cancelled || !Array.isArray(data)) return;
         const map: Record<string, CatalogOffer> = {};
-        data.forEach((o: { productId: string; validUntil?: string; discountPercent: number }) => {
-          map[o.productId] = { validUntil: o.validUntil ?? null, discountPercent: o.discountPercent };
+        data.forEach((o: { productId: string | number; validUntil?: string; discountPercent: number }) => {
+          map[String(o.productId)] = { validUntil: o.validUntil ?? null, discountPercent: o.discountPercent };
         });
         setOffersByProductId(map);
       })
@@ -63,6 +74,26 @@ export function Home() {
       });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API}/promo-banners`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: PromoBannerItem[]) => {
+        if (cancelled || !Array.isArray(data)) return;
+        setPromoBanners(data);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (promoBanners.length === 0) return;
+    const timer = setInterval(() => {
+      setPromoIndex((i) => (i + 1) % Math.max(promoBanners.length, 1));
+    }, PROMO_CAROUSEL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [promoBanners.length]);
 
   const slides = heroSlides.length > 0 ? heroSlides : HERO_SLIDES_FALLBACK;
 
@@ -166,63 +197,59 @@ export function Home() {
         </div>
       </section>
 
-      {/* Promotions Section */}
-      <section className="py-12 px-[5%] bg-white">
-        <div className="max-w-[80rem] mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Promo 1 */}
-            <div className="animate-on-scroll relative overflow-hidden rounded-lg group cursor-pointer">
-              <img
-                src="/promo-tools.jpg"
-                alt="Nuevos productos"
-                className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-6">
-                <span className="text-[#c8a48c] text-sm uppercase tracking-wide mb-1">
-                  ¡Nuevos Productos!
-                </span>
-                <p className="text-white text-sm">
-                  Descubre nuestra nueva línea de herramientas eléctricas
-                </p>
-              </div>
+      {/* Tres banners en fila (como la imagen): rotan cada 6 s (3º→2º→1º→3º…) */}
+      {promoBanners.length > 0 && (
+        <section className="py-12 px-[5%] bg-white" aria-label="Banners promocionales">
+          <div className="max-w-[80rem] mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[0, 1, 2].map((slotIndex) => {
+                const n = promoBanners.length;
+                const bannerIndex = (promoIndex + (slotIndex === 0 ? 1 : slotIndex === 1 ? 2 : 0)) % n;
+                const banner = promoBanners[bannerIndex];
+                const accentColors = ['text-[#c8a48c]', 'text-orange-400', 'text-green-400'];
+                const accent = accentColors[slotIndex % 3];
+                return (
+                  <div
+                    key={`slot-${slotIndex}-${banner.id}`}
+                    className="relative overflow-hidden rounded-xl h-64 md:h-72 group transition-opacity duration-500"
+                  >
+                    <img
+                      src={banner.image}
+                      alt={banner.title || 'Promoción'}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-6">
+                      {banner.title && (
+                        <span className={`${accent} text-sm font-bold uppercase tracking-wide mb-1 block`}>
+                          {banner.title}
+                        </span>
+                      )}
+                      {banner.description && (
+                        <p className="text-white text-sm">{banner.description}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-
-            {/* Promo 2 */}
-            <div className="animate-on-scroll relative overflow-hidden rounded-lg group cursor-pointer">
-              <img
-                src="/promo-materials.jpg"
-                alt="Descuento"
-                className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-6">
-                <span className="text-orange-400 text-sm uppercase tracking-wide mb-1">
-                  20% de Descuento
-                </span>
-                <p className="text-white text-sm">
-                  En cemento y materiales de albañilería
-                </p>
+            {promoBanners.length > 1 && (
+              <div className="flex justify-center gap-2 mt-4">
+                {promoBanners.map((_, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setPromoIndex(i)}
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      i === promoIndex % promoBanners.length ? 'w-8 bg-[#1e5631]' : 'w-2 bg-gray-300 hover:bg-gray-400'
+                    }`}
+                    aria-label={`Ir a paso ${i + 1}`}
+                  />
+                ))}
               </div>
-            </div>
-
-            {/* Promo 3 */}
-            <div className="animate-on-scroll relative overflow-hidden rounded-lg group cursor-pointer">
-              <img
-                src="/promo-shipping.jpg"
-                alt="Envío gratis"
-                className="w-full h-64 object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent flex flex-col justify-end p-6">
-                <span className="text-green-400 text-sm uppercase tracking-wide mb-1">
-                  Envío Gratis
-                </span>
-                <p className="text-white text-sm">
-                  En compras mayores a S/500
-                </p>
-              </div>
-            </div>
+            )}
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Categories Section */}
       <section className="py-20 px-[5%] bg-[#f8f0ed]">
@@ -288,7 +315,7 @@ export function Home() {
                   className="animate-on-scroll"
                   style={{ animationDelay: `${index * 100}ms` }}
                 >
-                  <ProductCard product={product} offer={offersByProductId[product.id]} />
+                  <ProductCard product={product} offer={offersByProductId[String(product.id)]} />
                 </div>
               ))}
             </div>
