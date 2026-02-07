@@ -1,18 +1,60 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Menu, X, Search, LogIn, Truck } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
+import { useProductsStore } from '@/store/productsStore';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+
+const MIN_SEARCH_CHARS = 3;
+const SEARCH_DEBOUNCE_MS = 300;
+const MAX_DROPDOWN_HEIGHT = 320;
 
 export function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [searchInput, setSearchInput] = useState('');
+  const [dropdownVisible, setDropdownVisible] = useState(false);
+  const searchDesktopRef = useRef<HTMLDivElement>(null);
+  const searchMobileRef = useRef<HTMLDivElement>(null);
   const location = useLocation();
   const navigate = useNavigate();
   const { toggleCart, getTotalItems } = useCartStore();
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
+  const { products, fetchProducts } = useProductsStore();
+
+  const debouncedQuery = useDebouncedValue(searchInput.trim(), SEARCH_DEBOUNCE_MS);
+  const searchResults = useMemo(() => {
+    if (debouncedQuery.length < MIN_SEARCH_CHARS) return [];
+    const q = debouncedQuery.toLowerCase();
+    return products.filter((p) => p.name.toLowerCase().includes(q));
+  }, [products, debouncedQuery]);
+
+  const queryLength = searchInput.trim().length;
+  const showDropdown = dropdownVisible && queryLength >= MIN_SEARCH_CHARS && searchResults.length > 0;
+
+  useEffect(() => {
+    fetchProducts();
+  }, [fetchProducts]);
+
+  useEffect(() => {
+    if (queryLength >= MIN_SEARCH_CHARS && searchResults.length > 0) setDropdownVisible(true);
+  }, [queryLength, searchResults.length]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      const target = e.target as Node;
+      if (
+        searchDesktopRef.current?.contains(target) === false &&
+        searchMobileRef.current?.contains(target) === false
+      ) {
+        setDropdownVisible(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const navLinks = [
     { path: '/', label: 'Inicio' },
@@ -31,10 +73,18 @@ export function Navbar() {
     if (query) {
       navigate(`/catalogo?q=${encodeURIComponent(query)}`);
       setSearchInput('');
+      setDropdownVisible(false);
       setIsMenuOpen(false);
     } else {
       navigate('/catalogo');
     }
+  };
+
+  const handleSelectProduct = (productId: string) => {
+    setSearchInput('');
+    setDropdownVisible(false);
+    setIsMenuOpen(false);
+    navigate(`/producto/${productId}`);
   };
 
   return (
@@ -77,22 +127,47 @@ export function Navbar() {
 
         {/* Right: Search + Login + Cart */}
         <div className="flex items-center gap-4">
-          <form onSubmit={handleSearchSubmit} className="hidden md:flex items-center" role="search">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                type="search"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="Buscar productos..."
-                className="pl-8 w-48 h-9 bg-[#f8f8f8] border-gray-200 text-sm placeholder:text-gray-400"
-                aria-label="Buscar productos"
-              />
-            </div>
-            <Button type="submit" variant="ghost" size="sm" className="text-[#1e5631] ml-1">
-              Buscar
-            </Button>
-          </form>
+          <div ref={searchDesktopRef} className="hidden md:block relative">
+            <form onSubmit={handleSearchSubmit} className="flex items-center" role="search">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Input
+                  type="search"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Buscar productos..."
+                  className="pl-8 w-48 h-9 bg-[#f8f8f8] border-gray-200 text-sm placeholder:text-gray-400"
+                  aria-label="Buscar productos"
+                  autoComplete="off"
+                />
+                {showDropdown && (
+                  <div
+                    className="absolute left-0 top-full mt-1 w-80 max-h-[320px] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-[110] py-1"
+                    style={{ maxHeight: MAX_DROPDOWN_HEIGHT }}
+                  >
+                    {searchResults.map((product) => (
+                      <button
+                        key={product.id}
+                        type="button"
+                        onClick={() => handleSelectProduct(product.id)}
+                        className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-[#f8f8f8] transition-colors border-0 bg-transparent cursor-pointer"
+                      >
+                        <img
+                          src={product.image}
+                          alt=""
+                          className="w-10 h-10 object-cover rounded shrink-0"
+                        />
+                        <span className="text-sm text-[#333] truncate flex-1">{product.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <Button type="submit" variant="ghost" size="sm" className="text-[#1e5631] ml-1">
+                Buscar
+              </Button>
+            </form>
+          </div>
           <button
             type="button"
             onClick={() => navigate('/catalogo')}
@@ -171,21 +246,46 @@ export function Navbar() {
                 {link.label}
               </button>
             ))}
-            <form onSubmit={handleSearchSubmit} className="px-4 py-2 border-t border-gray-100">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <Input
-                  type="search"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  placeholder="Buscar productos..."
-                  className="pl-9 w-full h-10 bg-[#f8f8f8] border-gray-200"
-                />
-              </div>
-              <Button type="submit" className="w-full mt-2 bg-[#1e5631] hover:bg-[#164a28] text-white text-sm">
-                Buscar
-              </Button>
-            </form>
+            <div ref={searchMobileRef} className="px-4 py-2 border-t border-gray-100">
+              <form onSubmit={handleSearchSubmit}>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Input
+                    type="search"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    placeholder="Buscar productos..."
+                    className="pl-9 w-full h-10 bg-[#f8f8f8] border-gray-200"
+                    autoComplete="off"
+                  />
+                  {showDropdown && (
+                    <div
+                      className="absolute left-0 right-0 top-full mt-1 max-h-[280px] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg z-[110] py-1"
+                      style={{ maxHeight: 280 }}
+                    >
+                      {searchResults.map((product) => (
+                        <button
+                          key={product.id}
+                          type="button"
+                          onClick={() => handleSelectProduct(product.id)}
+                          className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#f8f8f8] transition-colors border-0 bg-transparent cursor-pointer"
+                        >
+                          <img
+                            src={product.image}
+                            alt=""
+                            className="w-10 h-10 object-cover rounded shrink-0"
+                          />
+                          <span className="text-sm text-[#333] truncate flex-1">{product.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <Button type="submit" className="w-full mt-2 bg-[#1e5631] hover:bg-[#164a28] text-white text-sm">
+                  Buscar
+                </Button>
+              </form>
+            </div>
             <button
               type="button"
               onClick={handleLoginClick}
