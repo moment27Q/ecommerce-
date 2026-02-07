@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { ProductCard } from '@/components/product/ProductCard';
 import { useProductsStore } from '@/store/productsStore';
@@ -150,8 +150,11 @@ export function Catalog() {
             <p className="text-white/90 text-xs italic mt-2">*Válido mientras haya stock</p>
           </div>
           <div className="flex-shrink-0">
-            <Button className="bg-[#333] hover:bg-[#444] text-white font-bold uppercase text-sm tracking-widest px-6 py-3 rounded-lg">
-              VER EQUIPO
+            <Button
+              asChild
+              className="bg-[#333] hover:bg-[#444] text-white font-bold uppercase text-sm tracking-widest px-6 py-3 rounded-lg"
+            >
+              <Link to="/equipo-pesado">VER EQUIPO</Link>
             </Button>
           </div>
         </div>

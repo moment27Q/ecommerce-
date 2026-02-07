@@ -65,8 +65,8 @@ export interface Offer {
   product: Product;
 }
 
-function formatOrderDate(dateStr: string): string {
-  const d = new Date(dateStr);
+function formatOrderDate(dateStr: string | Date): string {
+  const d = typeof dateStr === 'string' ? new Date(dateStr) : dateStr;
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -205,6 +205,29 @@ export function Admin() {
       setOrdersLoading(false);
     }
   }, [logout, navigate]);
+
+  const updateOrderStatusInApi = useCallback(
+    async (orderId: string, status: Order['status']) => {
+      try {
+        const res = await fetchWithAuth(`${API}/orders/${orderId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        });
+        if (res.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        if (!res.ok) throw new Error('Error al actualizar estado');
+        await loadOrders();
+      } catch {
+        // fallback: recargar lista por si el backend sí actualizó
+        await loadOrders();
+      }
+    },
+    [loadOrders, logout, navigate]
+  );
 
   const loadProducts = useCallback(async () => {
     setProductsLoading(true);
@@ -1054,10 +1077,10 @@ export function Admin() {
     <div className="min-h-screen bg-[#f8f8f8] pt-[8.75rem]">
       <div className="flex">
         {/* Sidebar - Menú principal */}
-        <aside className="w-64 bg-[#1e5631] text-white min-h-screen fixed left-0 top-[8.75rem] hidden lg:block z-40">
-          <div className="p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-white/70 mb-4 px-3">Menú principal</p>
-            <nav className="space-y-1">
+        <aside className="w-64 bg-[#1e5631] text-white fixed left-0 top-[8.75rem] bottom-0 hidden lg:flex lg:flex-col z-40">
+          <div className="flex flex-col flex-1 min-h-0 p-5">
+            <p className="text-xs font-bold uppercase tracking-wider text-white/70 mb-4 px-3 shrink-0">Menú principal</p>
+            <nav className="space-y-1 flex-1 overflow-y-auto min-h-0">
               <button
                 onClick={() => setSection('dashboard')}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
@@ -1139,7 +1162,7 @@ export function Admin() {
                 <span className="min-w-0 flex-1">Ofertas</span>
               </button>
             </nav>
-            <div className="mt-8 pt-6 border-t border-white/20">
+            <div className="shrink-0 mt-4 pt-4 border-t border-white/20">
               <button
                 onClick={() => { logout(); navigate('/login'); }}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-white/90 text-left"
@@ -1382,7 +1405,16 @@ export function Admin() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {filteredOrders.length === 0 ? (
+                      {ordersLoading ? (
+                        <tr>
+                          <td
+                            colSpan={8}
+                            className="px-6 py-12 text-center text-gray-500"
+                          >
+                            Cargando pedidos...
+                          </td>
+                        </tr>
+                      ) : filteredOrders.length === 0 ? (
                         <tr>
                           <td
                             colSpan={8}
@@ -1517,7 +1549,13 @@ export function Admin() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
-                      {products.length === 0 ? (
+                      {productsLoading ? (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                            Cargando productos...
+                          </td>
+                        </tr>
+                      ) : products.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                             No hay productos. Añade uno con el botón superior.

@@ -16,14 +16,15 @@ export function CartSidebar() {
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop - por encima del header (z-[100]) */}
       <div
-        className="fixed inset-0 bg-black/50 z-50 transition-opacity"
+        className="fixed inset-0 bg-black/50 z-[110] transition-opacity"
         onClick={() => setCartOpen(false)}
+        aria-hidden
       />
 
-      {/* Sidebar */}
-      <div className="fixed top-0 right-0 h-full w-full max-w-[400px] bg-white z-50 shadow-2xl flex flex-col animate-slideInRight">
+      {/* Panel del carrito - por encima del header y del backdrop */}
+      <div className="fixed top-0 right-0 h-full w-full max-w-[400px] bg-white z-[120] shadow-2xl flex flex-col animate-slideInRight">
         {/* Header */}
         <div className="bg-[#f8f0ed] p-6 border-b border-[#c8a48c] flex items-center justify-between">
           <div className="flex items-center gap-3">

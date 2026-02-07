@@ -11,6 +11,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Contact } from '@/pages/Contact';
 import { ProductDetail } from '@/pages/ProductDetail';
 import { Ofertas } from '@/pages/Ofertas';
+import { EquipoPesado } from '@/pages/EquipoPesado';
 import './App.css';
 
 function AppContent() {
@@ -26,6 +27,7 @@ function AppContent() {
           <Route path="/" element={<Home />} />
           <Route path="/catalogo" element={<Catalog />} />
           <Route path="/ofertas" element={<Ofertas />} />
+          <Route path="/equipo-pesado" element={<EquipoPesado />} />
           <Route path="/producto/:id" element={<ProductDetail />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/checkout" element={<Checkout />} />

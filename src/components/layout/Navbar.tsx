@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { ShoppingCart, Menu, X, Search, LogIn, Truck } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
@@ -37,41 +37,47 @@ export function Navbar() {
     }
   };
 
-  const isShopActive = location.pathname === '/catalogo';
-
   return (
-    <header className="fixed top-0 left-0 right-0 z-50">
-      <nav className="bg-white shadow-sm h-[6.25rem]">
+    <header className="fixed top-0 left-0 right-0 z-[100] bg-white shadow-sm" role="banner">
+      <nav className="bg-white shadow-sm h-[6.25rem]" role="navigation" aria-label="Menú principal">
       <div className="container-custom h-full flex items-center justify-between">
-        {/* Logo JJ Construcción */}
-        <Link
-          to="/"
-          className="flex items-center shrink-0 transition-opacity hover:opacity-90"
-          aria-label="JJ Construcción - Inicio"
+        {/* Logo JJ Construcción - Inicio (navegación programática para garantizar redirección) */}
+        <button
+          type="button"
+          onClick={() => {
+            setIsMenuOpen(false);
+            navigate('/');
+          }}
+          className="flex items-center shrink-0 transition-opacity hover:opacity-90 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e5631] focus-visible:ring-offset-2 bg-transparent border-0 p-0 cursor-pointer"
+          aria-label="JJ Construcción - Ir a Inicio"
         >
           <img
             src="/logo.png"
             alt="JJ Construcción"
             className="h-[6rem] w-auto max-h-[6.25rem] object-contain object-left"
           />
-        </Link>
+        </button>
 
-        {/* Desktop Navigation */}
+        {/* Desktop Navigation: Inicio, Tienda, Contáctanos (navegación programática) */}
         <div className="hidden md:flex items-center gap-1">
           {navLinks.map((link) => (
-            <Link
+            <button
               key={link.path}
-              to={link.path}
-              className={`nav-link ${location.pathname === link.path ? 'active' : ''}`}
+              type="button"
+              onClick={() => {
+                setIsMenuOpen(false);
+                navigate(link.path);
+              }}
+              className={`nav-link inline-block rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e5631] focus-visible:ring-offset-2 min-h-[2.25rem] flex items-center bg-transparent border-0 cursor-pointer px-4 py-2 ${location.pathname === link.path ? 'active' : ''}`}
             >
               {link.label}
-            </Link>
+            </button>
           ))}
         </div>
 
-        {/* Right: Search + Login icon + Cart */}
+        {/* Right: Search + Login + Cart */}
         <div className="flex items-center gap-4">
-          <form onSubmit={handleSearchSubmit} className="hidden md:flex items-center">
+          <form onSubmit={handleSearchSubmit} className="hidden md:flex items-center" role="search">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <Input
@@ -87,27 +93,30 @@ export function Navbar() {
               Buscar
             </Button>
           </form>
-          <Link
-            to="/catalogo"
-            className="md:hidden p-2 text-[#333] hover:text-[#1e5631] transition-colors"
-            aria-label="Buscar"
+          <button
+            type="button"
+            onClick={() => navigate('/catalogo')}
+            className="md:hidden p-2 text-[#333] hover:text-[#1e5631] transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e5631] inline-flex items-center justify-center min-w-[2.5rem] min-h-[2.5rem] bg-transparent border-0 cursor-pointer"
+            aria-label="Ir a Tienda para buscar productos"
           >
             <Search className="w-5 h-5" />
-          </Link>
+          </button>
 
           <button
+            type="button"
             onClick={handleLoginClick}
-            className="p-2 text-[#333] hover:text-[#1e5631] transition-colors"
-            aria-label={isAuthenticated ? 'Admin' : 'Iniciar sesión'}
+            className="p-2 text-[#333] hover:text-[#1e5631] transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e5631]"
+            aria-label={isAuthenticated ? 'Ir al panel Admin' : 'Iniciar sesión'}
             title={isAuthenticated ? 'Ir al panel Admin' : 'Iniciar sesión'}
           >
             <LogIn className="w-5 h-5" />
           </button>
 
           <button
+            type="button"
             onClick={toggleCart}
-            className="relative p-2 text-[#333] hover:text-[#1e5631] transition-colors"
-            aria-label="Carrito"
+            className="relative p-2 text-[#333] hover:text-[#1e5631] transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e5631]"
+            aria-label="Ver carrito"
           >
             <ShoppingCart className="w-5 h-5" />
             {getTotalItems() > 0 && (
@@ -118,10 +127,12 @@ export function Navbar() {
           </button>
 
           <Button
+            type="button"
             variant="ghost"
             size="icon"
             className="md:hidden"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
+            aria-label={isMenuOpen ? 'Cerrar menú' : 'Abrir menú'}
           >
             {isMenuOpen ? (
               <X className="w-6 h-6 text-[#333]" />
@@ -143,19 +154,22 @@ export function Navbar() {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="md:hidden absolute top-[calc(6.25rem+2.5rem)] left-0 right-0 bg-white shadow-lg border-t border-gray-200">
+        <div className="md:hidden absolute top-[calc(6.25rem+2.5rem)] left-0 right-0 bg-white shadow-lg border-t border-gray-200 z-[100]">
           <div className="flex flex-col p-4">
             {navLinks.map((link) => (
-              <Link
+              <button
                 key={link.path}
-                to={link.path}
-                className={`py-3 px-4 text-[#333] text-sm transition-colors hover:bg-[#f8f8f8] ${
+                type="button"
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  navigate(link.path);
+                }}
+                className={`py-3 px-4 text-[#333] text-sm transition-colors hover:bg-[#f8f8f8] rounded text-left w-full bg-transparent border-0 cursor-pointer ${
                   location.pathname === link.path ? 'font-semibold bg-[#f8f8f8]' : ''
                 }`}
-                onClick={() => setIsMenuOpen(false)}
               >
                 {link.label}
-              </Link>
+              </button>
             ))}
             <form onSubmit={handleSearchSubmit} className="px-4 py-2 border-t border-gray-100">
               <div className="relative">
@@ -173,10 +187,11 @@ export function Navbar() {
               </Button>
             </form>
             <button
+              type="button"
               onClick={handleLoginClick}
-              className="flex items-center gap-3 py-3 px-4 text-[#333] text-sm transition-colors hover:bg-[#f8f8f8] text-left"
+              className="flex items-center gap-3 py-3 px-4 text-[#333] text-sm transition-colors hover:bg-[#f8f8f8] text-left w-full rounded"
             >
-              <LogIn className="w-5 h-5 text-gray-500" />
+              <LogIn className="w-5 h-5 text-gray-500 shrink-0" />
               {isAuthenticated ? 'Panel Admin' : 'Iniciar sesión'}
             </button>
           </div>
