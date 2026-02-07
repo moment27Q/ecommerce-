@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { db, initDb, ensurePromoBannersTable } from './db.js';
+import { db, initDb, ensurePromoBannersTable, ensureCategoriesTable, ensureFilterGroupsTable } from './db.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'clave-secreta-cambiar-en-produccion';
 const PORT = process.env.PORT || 3001;
@@ -80,6 +80,110 @@ app.delete('/api/products/:id', authMiddleware, (req, res) => {
   } finally {
     db.pragma('foreign_keys = ON');
   }
+});
+
+// Categorías (público)
+app.get('/api/categories', (req, res) => {
+  ensureCategoriesTable();
+  const rows = db.prepare('SELECT id, name, icon, sort_order AS sortOrder, filter_key AS filterKey FROM categories ORDER BY sort_order ASC, name ASC').all();
+  res.json(rows.map((r) => ({ id: String(r.id), name: r.name, icon: r.icon || 'Wrench', sortOrder: r.sortOrder ?? 0, filterKey: r.filterKey ?? null })));
+});
+
+// Categorías (admin)
+app.post('/api/categories', authMiddleware, (req, res) => {
+  ensureCategoriesTable();
+  const { name, icon, filterKey } = req.body || {};
+  if (!name || typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'El nombre de la categoría es obligatorio' });
+  const count = db.prepare('SELECT COUNT(*) as n FROM categories').get();
+  const sortOrder = count.n;
+  try {
+    db.prepare('INSERT INTO categories (name, icon, sort_order, filter_key) VALUES (?, ?, ?, ?)')
+      .run(name.trim(), (icon && String(icon).trim()) || 'Wrench', sortOrder, (filterKey && String(filterKey).trim()) || null);
+  } catch (e) {
+    if (e && e.message && e.message.includes('UNIQUE')) return res.status(400).json({ error: 'Ya existe una categoría con ese nombre' });
+    throw e;
+  }
+  const row = db.prepare('SELECT id, name, icon, sort_order AS sortOrder, filter_key AS filterKey FROM categories ORDER BY id DESC LIMIT 1').get();
+  res.status(201).json({ id: String(row.id), name: row.name, icon: row.icon || 'Wrench', sortOrder: row.sortOrder, filterKey: row.filterKey ?? null });
+});
+
+app.put('/api/categories/:id', authMiddleware, (req, res) => {
+  const { id } = req.params;
+  const { name, icon, sortOrder, filterKey } = req.body || {};
+  const existing = db.prepare('SELECT * FROM categories WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Categoría no encontrada' });
+  const newName = name !== undefined ? String(name).trim() : existing.name;
+  if (!newName) return res.status(400).json({ error: 'El nombre no puede estar vacío' });
+  try {
+    db.prepare('UPDATE categories SET name = ?, icon = ?, sort_order = ?, filter_key = ? WHERE id = ?')
+      .run(newName, (icon !== undefined ? String(icon) : existing.icon) || 'Wrench', sortOrder != null ? Number(sortOrder) : existing.sort_order, filterKey !== undefined ? (filterKey && String(filterKey).trim()) || null : existing.filter_key, id);
+  } catch (e) {
+    if (e && e.message && e.message.includes('UNIQUE')) return res.status(400).json({ error: 'Ya existe una categoría con ese nombre' });
+    throw e;
+  }
+  const row = db.prepare('SELECT id, name, icon, sort_order AS sortOrder, filter_key AS filterKey FROM categories WHERE id = ?').get(id);
+  res.json({ id: String(row.id), name: row.name, icon: row.icon || 'Wrench', sortOrder: row.sortOrder, filterKey: row.filterKey ?? null });
+});
+
+app.delete('/api/categories/:id', authMiddleware, (req, res) => {
+  const { id } = req.params;
+  const result = db.prepare('DELETE FROM categories WHERE id = ?').run(id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Categoría no encontrada' });
+  res.status(204).send();
+});
+
+// Grupos de filtro (sidebar tienda) — público
+app.get('/api/filter-groups', (req, res) => {
+  ensureFilterGroupsTable();
+  const rows = db.prepare('SELECT id, name, key, sort_order AS sortOrder FROM filter_groups ORDER BY sort_order ASC, name ASC').all();
+  res.json(rows.map((r) => ({ id: String(r.id), name: r.name, key: r.key, sortOrder: r.sortOrder ?? 0 })));
+});
+
+app.post('/api/filter-groups', authMiddleware, (req, res) => {
+  ensureFilterGroupsTable();
+  const { name, key } = req.body || {};
+  if (!name || typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'El nombre es obligatorio' });
+  const keyVal = (key != null && String(key).trim()) ? String(key).trim().toLowerCase().replace(/\s+/g, '-') : name.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 32);
+  if (!keyVal) return res.status(400).json({ error: 'Indica un nombre para generar la clave' });
+  const count = db.prepare('SELECT COUNT(*) as n FROM filter_groups').get();
+  const sortOrder = count.n;
+  try {
+    db.prepare('INSERT INTO filter_groups (name, key, sort_order) VALUES (?, ?, ?)').run(name.trim(), keyVal, sortOrder);
+  } catch (e) {
+    if (e && e.message && e.message.includes('UNIQUE')) return res.status(400).json({ error: 'Ya existe un grupo con esa clave' });
+    throw e;
+  }
+  const row = db.prepare('SELECT id, name, key, sort_order AS sortOrder FROM filter_groups ORDER BY id DESC LIMIT 1').get();
+  res.status(201).json({ id: String(row.id), name: row.name, key: row.key, sortOrder: row.sortOrder });
+});
+
+app.put('/api/filter-groups/:id', authMiddleware, (req, res) => {
+  const { id } = req.params;
+  const { name, key, sortOrder } = req.body || {};
+  const existing = db.prepare('SELECT * FROM filter_groups WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Grupo no encontrado' });
+  const newName = name !== undefined ? String(name).trim() : existing.name;
+  const newKey = key !== undefined ? String(key).trim().toLowerCase().replace(/\s+/g, '-') : existing.key;
+  if (!newName) return res.status(400).json({ error: 'El nombre no puede estar vacío' });
+  if (!newKey) return res.status(400).json({ error: 'La clave no puede estar vacía' });
+  try {
+    db.prepare('UPDATE filter_groups SET name = ?, key = ?, sort_order = ? WHERE id = ?')
+      .run(newName, newKey, sortOrder != null ? Number(sortOrder) : existing.sort_order, id);
+  } catch (e) {
+    if (e && e.message && e.message.includes('UNIQUE')) return res.status(400).json({ error: 'Ya existe un grupo con esa clave' });
+    throw e;
+  }
+  const row = db.prepare('SELECT id, name, key, sort_order AS sortOrder FROM filter_groups WHERE id = ?').get(id);
+  res.json({ id: String(row.id), name: row.name, key: row.key, sortOrder: row.sortOrder });
+});
+
+app.delete('/api/filter-groups/:id', authMiddleware, (req, res) => {
+  const { id } = req.params;
+  const row = db.prepare('SELECT key FROM filter_groups WHERE id = ?').get(id);
+  if (!row) return res.status(404).json({ error: 'Grupo no encontrado' });
+  db.prepare('UPDATE categories SET filter_key = NULL WHERE filter_key = ?').run(row.key);
+  db.prepare('DELETE FROM filter_groups WHERE id = ?').run(id);
+  res.status(204).send();
 });
 
 app.post('/api/orders', (req, res) => {

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   LayoutDashboard,
   LayoutGrid,
+  Layers,
   ShoppingBag,
   Package,
   Eye,
@@ -25,12 +26,12 @@ import {
   Info,
   Percent,
   Upload,
+  Filter,
 } from 'lucide-react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useProductsStore, type ProductFormData } from '@/store/productsStore';
 import { useAuthStore } from '@/store/authStore';
 import { fetchWithAuth, API } from '@/lib/api';
-import { categories } from '@/data/products';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -54,7 +55,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import type { Order, Product, ProductTag } from '@/types';
 
-type AdminSection = 'dashboard' | 'orders' | 'products' | 'carousel' | 'promoBanners' | 'offers';
+type AdminSection = 'dashboard' | 'orders' | 'products' | 'categories' | 'filterGroups' | 'carousel' | 'promoBanners' | 'offers';
 
 export interface Offer {
   id: number;
@@ -89,6 +90,21 @@ export interface PromoBanner {
   image: string;
   title: string;
   description: string;
+  sortOrder: number;
+}
+
+export interface AdminCategory {
+  id: string;
+  name: string;
+  icon: string;
+  sortOrder: number;
+  filterKey: string | null;
+}
+
+export interface FilterGroup {
+  id: string;
+  name: string;
+  key: string;
   sortOrder: number;
 }
 
@@ -154,6 +170,22 @@ export function Admin() {
   const [offerError, setOfferError] = useState<string | null>(null);
   const [offerSaving, setOfferSaving] = useState(false);
   const [offerToDelete, setOfferToDelete] = useState<Offer | null>(null);
+
+  const [categories, setCategories] = useState<AdminCategory[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [categoryForm, setCategoryForm] = useState({ name: '', icon: 'Wrench', filterKey: '' });
+  const [categorySaving, setCategorySaving] = useState(false);
+  const [categoryToDelete, setCategoryToDelete] = useState<AdminCategory | null>(null);
+
+  const [filterGroups, setFilterGroups] = useState<FilterGroup[]>([]);
+  const [filterGroupsLoading, setFilterGroupsLoading] = useState(false);
+  const [filterGroupDialogOpen, setFilterGroupDialogOpen] = useState(false);
+  const [editingFilterGroupId, setEditingFilterGroupId] = useState<string | null>(null);
+  const [filterGroupForm, setFilterGroupForm] = useState({ name: '', key: '' });
+  const [filterGroupSaving, setFilterGroupSaving] = useState(false);
+  const [filterGroupToDelete, setFilterGroupToDelete] = useState<FilterGroup | null>(null);
 
   const loadOrders = useCallback(async () => {
     setOrdersLoading(true);
@@ -235,6 +267,42 @@ export function Admin() {
   useEffect(() => {
     if (section === 'promoBanners') loadPromoBanners();
   }, [section, loadPromoBanners]);
+
+  const loadCategories = useCallback(async () => {
+    setCategoriesLoading(true);
+    try {
+      const res = await fetch(`${API}/categories`);
+      if (!res.ok) throw new Error('Error al cargar categorías');
+      const data = await res.json();
+      setCategories(Array.isArray(data) ? data : []);
+    } catch {
+      setCategories([]);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, []);
+
+  const loadFilterGroups = useCallback(async () => {
+    setFilterGroupsLoading(true);
+    try {
+      const res = await fetch(`${API}/filter-groups`);
+      if (!res.ok) throw new Error('Error al cargar grupos');
+      const data = await res.json();
+      setFilterGroups(Array.isArray(data) ? data : []);
+    } catch {
+      setFilterGroups([]);
+    } finally {
+      setFilterGroupsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (section === 'categories' || section === 'products') loadCategories();
+  }, [section, loadCategories]);
+
+  useEffect(() => {
+    if (section === 'filterGroups' || section === 'categories') loadFilterGroups();
+  }, [section, loadFilterGroups]);
 
   const loadOffers = useCallback(async () => {
     setOffersLoading(true);
@@ -721,6 +789,168 @@ export function Admin() {
     }
   };
 
+  const openAddCategory = () => {
+    setEditingCategoryId(null);
+    setCategoryForm({ name: '', icon: 'Wrench', filterKey: '' });
+    setCategoryDialogOpen(true);
+  };
+
+  const openEditCategory = (cat: AdminCategory) => {
+    setEditingCategoryId(cat.id);
+    setCategoryForm({ name: cat.name, icon: cat.icon || 'Wrench', filterKey: cat.filterKey || '' });
+    setCategoryDialogOpen(true);
+  };
+
+  const handleSaveCategory = async () => {
+    if (!categoryForm.name.trim()) return;
+    setCategorySaving(true);
+    try {
+      if (editingCategoryId != null) {
+        const res = await fetchWithAuth(`${API}/categories/${editingCategoryId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: categoryForm.name.trim(),
+            icon: categoryForm.icon.trim() || 'Wrench',
+            filterKey: categoryForm.filterKey.trim() || null,
+          }),
+        });
+        if (res.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error || 'Error al actualizar');
+        }
+      } else {
+        const res = await fetchWithAuth(`${API}/categories`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: categoryForm.name.trim(),
+            icon: categoryForm.icon.trim() || 'Wrench',
+            filterKey: categoryForm.filterKey.trim() || null,
+          }),
+        });
+        if (res.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error || 'Error al crear');
+        }
+      }
+      setCategoryDialogOpen(false);
+      setCategoryForm({ name: '', icon: 'Wrench', filterKey: '' });
+      setEditingCategoryId(null);
+      await loadCategories();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCategorySaving(false);
+    }
+  };
+
+  const confirmDeleteCategory = async () => {
+    if (!categoryToDelete) return;
+    try {
+      const res = await fetchWithAuth(`${API}/categories/${categoryToDelete.id}`, { method: 'DELETE' });
+      if (res.status === 401) {
+        logout();
+        navigate('/login');
+        return;
+      }
+      if (!res.ok) throw new Error('Error al eliminar');
+      setCategoryToDelete(null);
+      await loadCategories();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const openAddFilterGroup = () => {
+    setEditingFilterGroupId(null);
+    setFilterGroupForm({ name: '', key: '' });
+    setFilterGroupDialogOpen(true);
+  };
+
+  const openEditFilterGroup = (fg: FilterGroup) => {
+    setEditingFilterGroupId(fg.id);
+    setFilterGroupForm({ name: fg.name, key: fg.key });
+    setFilterGroupDialogOpen(true);
+  };
+
+  const handleSaveFilterGroup = async () => {
+    if (!filterGroupForm.name.trim()) return;
+    setFilterGroupSaving(true);
+    try {
+      const keyVal = filterGroupForm.key.trim()
+        ? filterGroupForm.key.trim().toLowerCase().replace(/\s+/g, '-')
+        : filterGroupForm.name.trim().toLowerCase().replace(/\s+/g, '-').slice(0, 32);
+      if (editingFilterGroupId != null) {
+        const res = await fetchWithAuth(`${API}/filter-groups/${editingFilterGroupId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: filterGroupForm.name.trim(), key: keyVal }),
+        });
+        if (res.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error || 'Error al actualizar');
+        }
+      } else {
+        const res = await fetchWithAuth(`${API}/filter-groups`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: filterGroupForm.name.trim(), key: keyVal }),
+        });
+        if (res.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err?.error || 'Error al crear');
+        }
+      }
+      setFilterGroupDialogOpen(false);
+      setFilterGroupForm({ name: '', key: '' });
+      setEditingFilterGroupId(null);
+      await loadFilterGroups();
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setFilterGroupSaving(false);
+    }
+  };
+
+  const confirmDeleteFilterGroup = async () => {
+    if (!filterGroupToDelete) return;
+    try {
+      const res = await fetchWithAuth(`${API}/filter-groups/${filterGroupToDelete.id}`, { method: 'DELETE' });
+      if (res.status === 401) {
+        logout();
+        navigate('/login');
+        return;
+      }
+      if (!res.ok) throw new Error('Error al eliminar');
+      setFilterGroupToDelete(null);
+      await loadFilterGroups();
+      await loadCategories();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const openAddOffer = async () => {
     setEditingOfferId(null);
     setOfferForm({ productId: '', discountPercent: 10, validUntil: '' });
@@ -857,6 +1087,26 @@ export function Admin() {
                 <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
                 <Package className="w-5 h-5 shrink-0" />
                 <span className="min-w-0 flex-1">Productos</span>
+              </button>
+              <button
+                onClick={() => setSection('categories')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
+                  section === 'categories' ? 'bg-white/20' : 'hover:bg-white/10'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
+                <Layers className="w-5 h-5 shrink-0" />
+                <span className="min-w-0 flex-1">Categorías</span>
+              </button>
+              <button
+                onClick={() => setSection('filterGroups')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
+                  section === 'filterGroups' ? 'bg-white/20' : 'hover:bg-white/10'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
+                <Filter className="w-5 h-5 shrink-0" />
+                <span className="min-w-0 flex-1">Grupos de filtro</span>
               </button>
               <button
                 onClick={() => setSection('carousel')}
@@ -1338,6 +1588,122 @@ export function Admin() {
                     </tbody>
                   </table>
                 </div>
+              </div>
+            </>
+          )}
+
+          {/* ========== CATEGORÍAS ========== */}
+          {section === 'categories' && (
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <h1 className="text-2xl font-bold text-[#333]">Categorías</h1>
+                <Button
+                  onClick={openAddCategory}
+                  className="bg-[#1e5631] hover:bg-[#164a28] text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nueva categoría
+                </Button>
+              </div>
+              <p className="text-gray-600 mb-6">
+                Las categorías se muestran en la portada y en la tienda. Al crear una, podrás asignarla a productos y usarla en los filtros de la tienda (elige &quot;Grupo en tienda&quot; para que aparezca en el filtro lateral).
+              </p>
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                {categoriesLoading ? (
+                  <div className="p-12 text-center text-gray-500">Cargando categorías...</div>
+                ) : categories.length === 0 ? (
+                  <div className="p-12 text-center text-gray-500">
+                    No hay categorías. Añade la primera con el botón superior.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {categories.map((cat) => (
+                      <li key={cat.id} className="flex items-center gap-4 p-4 hover:bg-gray-50">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-[#333]">{cat.name}</p>
+                          <p className="text-xs text-gray-500">
+                            Icono: {cat.icon} {cat.filterKey ? ` • Filtro: ${cat.filterKey}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditCategory(cat)}
+                            className="border-[#1e5631] text-[#1e5631] hover:bg-[#1e5631] hover:text-white"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCategoryToDelete(cat)}
+                            className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* ========== GRUPOS DE FILTRO (sidebar tienda) ========== */}
+          {section === 'filterGroups' && (
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <h1 className="text-2xl font-bold text-[#333]">Grupos de filtro</h1>
+                <Button
+                  onClick={openAddFilterGroup}
+                  className="bg-[#1e5631] hover:bg-[#164a28] text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nuevo grupo
+                </Button>
+              </div>
+              <p className="text-gray-600 mb-6">
+                Son las opciones del filtro lateral en la tienda (Herramientas, Materias primas, Jardinería, Seguridad, etc.). Puedes añadir más. Luego, en Categorías, asigna cada categoría de producto a uno de estos grupos.
+              </p>
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                {filterGroupsLoading ? (
+                  <div className="p-12 text-center text-gray-500">Cargando grupos...</div>
+                ) : filterGroups.length === 0 ? (
+                  <div className="p-12 text-center text-gray-500">
+                    No hay grupos. Añade el primero con el botón superior.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {filterGroups.map((fg) => (
+                      <li key={fg.id} className="flex items-center gap-4 p-4 hover:bg-gray-50">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-[#333]">{fg.name}</p>
+                          <p className="text-xs text-gray-500">Clave: {fg.key}</p>
+                        </div>
+                        <div className="flex gap-2 shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openEditFilterGroup(fg)}
+                            className="border-[#1e5631] text-[#1e5631] hover:bg-[#1e5631] hover:text-white"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setFilterGroupToDelete(fg)}
+                            className="border-red-500 text-red-500 hover:bg-red-500 hover:text-white"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </>
           )}
@@ -1927,6 +2293,140 @@ export function Admin() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Modal añadir/editar categoría */}
+      <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingCategoryId ? 'Editar categoría' : 'Nueva categoría'}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="category-name">Nombre *</Label>
+              <Input
+                id="category-name"
+                value={categoryForm.name}
+                onChange={(e) => setCategoryForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Ej. Herramientas Eléctricas"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="category-icon">Icono</Label>
+              <select
+                id="category-icon"
+                value={categoryForm.icon}
+                onChange={(e) => setCategoryForm((f) => ({ ...f, icon: e.target.value }))}
+                className="h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
+              >
+                <option value="Zap">Zap (rayo)</option>
+                <option value="Wrench">Wrench (llave)</option>
+                <option value="Building2">Building2 (edificio)</option>
+                <option value="Paintbrush">Paintbrush (pincel)</option>
+                <option value="Droplets">Droplets (gotas)</option>
+                <option value="Lightbulb">Lightbulb (bombilla)</option>
+              </select>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="category-filter">Grupo en tienda (filtro lateral)</Label>
+              <select
+                id="category-filter"
+                value={categoryForm.filterKey}
+                onChange={(e) => setCategoryForm((f) => ({ ...f, filterKey: e.target.value }))}
+                className="h-10 w-full rounded-md border border-input bg-white px-3 py-2 text-sm"
+              >
+                <option value="">Ninguno</option>
+                {filterGroups.map((fg) => (
+                  <option key={fg.id} value={fg.key}>{fg.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setCategoryDialogOpen(false)}>Cancelar</Button>
+            <Button
+              type="button"
+              onClick={handleSaveCategory}
+              disabled={categorySaving || !categoryForm.name.trim()}
+              className="bg-[#1e5631] hover:bg-[#164a28]"
+            >
+              {categorySaving ? 'Guardando...' : editingCategoryId ? 'Guardar cambios' : 'Crear'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmar eliminar categoría */}
+      <AlertDialog open={!!categoryToDelete} onOpenChange={() => setCategoryToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar esta categoría?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Los productos que usen esta categoría seguirán mostrándola como texto. Solo se quita de la lista de categorías para nuevos productos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteCategory} className="bg-red-600 hover:bg-red-700">Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Modal nuevo/editar grupo de filtro */}
+      <Dialog open={filterGroupDialogOpen} onOpenChange={setFilterGroupDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingFilterGroupId ? 'Editar grupo de filtro' : 'Nuevo grupo de filtro'}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="fg-name">Nombre (ej. Herramientas, Materias primas)</Label>
+              <Input
+                id="fg-name"
+                value={filterGroupForm.name}
+                onChange={(e) => setFilterGroupForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="Herramientas"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="fg-key">Clave (para filtros, ej. tools)</Label>
+              <Input
+                id="fg-key"
+                value={filterGroupForm.key}
+                onChange={(e) => setFilterGroupForm((f) => ({ ...f, key: e.target.value }))}
+                placeholder="tools"
+              />
+              <p className="text-xs text-gray-500">Si la dejas vacía se genera del nombre.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setFilterGroupDialogOpen(false)}>Cancelar</Button>
+            <Button
+              type="button"
+              onClick={handleSaveFilterGroup}
+              disabled={filterGroupSaving || !filterGroupForm.name.trim()}
+              className="bg-[#1e5631] hover:bg-[#164a28]"
+            >
+              {filterGroupSaving ? 'Guardando...' : editingFilterGroupId ? 'Guardar cambios' : 'Crear'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmar eliminar grupo de filtro */}
+      <AlertDialog open={!!filterGroupToDelete} onOpenChange={() => setFilterGroupToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar este grupo de filtro?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Las categorías que usen este grupo quedarán sin grupo asignado. El grupo dejará de aparecer en el filtro de la tienda.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteFilterGroup} className="bg-red-600 hover:bg-red-700">Eliminar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Modal añadir/editar banner promocional */}
       <Dialog open={promoBannerDialogOpen} onOpenChange={(open) => { setPromoBannerDialogOpen(open); if (!open) setPromoBannerError(null); }}>

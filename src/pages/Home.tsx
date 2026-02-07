@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Zap, Wrench, Building2, Paintbrush, Droplets, Lightbulb } from 'lucide-react';
 import { ProductCard } from '@/components/product/ProductCard';
-import { categories } from '@/data/products';
 import { useProductsStore } from '@/store/productsStore';
 import { Button } from '@/components/ui/button';
 
@@ -36,6 +35,9 @@ export function Home() {
   const [heroSlides, setHeroSlides] = useState<{ src: string; alt: string }[]>([]);
   const [promoBanners, setPromoBanners] = useState<PromoBannerItem[]>([]);
   const [promoIndex, setPromoIndex] = useState(0);
+  const [categories, setCategories] = useState<{ id: string; name: string; icon: string }[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const categoriesEffectId = useRef(0);
   const [offersByProductId, setOffersByProductId] = useState<Record<string, CatalogOffer>>({});
 
   useEffect(() => {
@@ -88,6 +90,32 @@ export function Home() {
   }, []);
 
   useEffect(() => {
+    const id = ++categoriesEffectId.current;
+    setCategoriesLoading(true);
+    fetch(`${API}/categories`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: unknown) => {
+        if (categoriesEffectId.current !== id) return;
+        const list = Array.isArray(data)
+          ? data.map((c: { id?: unknown; name?: unknown; icon?: unknown }) => ({
+              id: String(c?.id ?? ''),
+              name: String(c?.name ?? ''),
+              icon: String(c?.icon ?? 'Wrench'),
+            })).filter((c) => c.id && c.name)
+          : [];
+        setCategories(list);
+      })
+      .catch(() => {
+        if (categoriesEffectId.current !== id) return;
+        setCategories([]);
+      })
+      .finally(() => {
+        if (categoriesEffectId.current === id) setCategoriesLoading(false);
+      });
+    return () => { categoriesEffectId.current = -1; };
+  }, []);
+
+  useEffect(() => {
     if (promoBanners.length === 0) return;
     const timer = setInterval(() => {
       setPromoIndex((i) => (i + 1) % Math.max(promoBanners.length, 1));
@@ -127,7 +155,7 @@ export function Home() {
     });
 
     return () => observerRef.current?.disconnect();
-  }, [featuredProducts.length]);
+  }, [featuredProducts.length, categories.length]);
 
   const getIcon = (iconName: string) => {
     const icons: Record<string, React.ElementType> = {
@@ -251,27 +279,39 @@ export function Home() {
         </section>
       )}
 
-      {/* Categories Section */}
+      {/* Categories Section - siempre visible */}
       <section className="py-20 px-[5%] bg-[#f8f0ed]">
         <div className="max-w-[80rem] mx-auto">
           <h2 className="text-3xl md:text-4xl text-center text-[#333] mb-12">
             Categorías Principales
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {categories.map((category, index) => (
-              <Link
-                key={category.id}
-                to="/catalogo"
-                className="animate-on-scroll bg-white rounded-lg p-6 text-center transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <div className="w-16 h-16 mx-auto mb-4 bg-[#f8f0ed] rounded-full flex items-center justify-center text-[#946545] transition-all group-hover:bg-[#946545] group-hover:text-white">
-                  {getIcon(category.icon)}
-                </div>
-                <h3 className="text-sm font-medium text-[#333]">{category.name}</h3>
-              </Link>
-            ))}
-          </div>
+          {categoriesLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="animate-pulse bg-white rounded-lg p-6 h-36" />
+              ))}
+            </div>
+          ) : categories.length === 0 ? (
+            <p className="text-center text-[#666] py-8">
+              No hay categorías aún. Añádelas desde el panel de administración.
+            </p>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {categories.map((category, index) => (
+                <Link
+                  key={category.id}
+                  to="/catalogo"
+                  className="animate-on-scroll bg-white rounded-lg p-6 text-center transition-all duration-300 hover:shadow-lg hover:-translate-y-1 group"
+                  style={{ animationDelay: `${index * 100}ms` }}
+                >
+                  <div className="w-16 h-16 mx-auto mb-4 bg-[#f8f0ed] rounded-full flex items-center justify-center text-[#946545] transition-all group-hover:bg-[#946545] group-hover:text-white">
+                    {getIcon(category.icon)}
+                  </div>
+                  <h3 className="text-sm font-medium text-[#333]">{category.name}</h3>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 

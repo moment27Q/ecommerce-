@@ -79,6 +79,58 @@ export function initDb() {
   `);
 }
 
+/** Asegura que la tabla categories exista y tenga datos iniciales. */
+export function ensureCategoriesTable() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      icon TEXT NOT NULL DEFAULT 'Wrench',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      filter_key TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+  const count = db.prepare('SELECT COUNT(*) as n FROM categories').get();
+  if (count.n === 0) {
+    const insert = db.prepare('INSERT INTO categories (name, icon, sort_order, filter_key) VALUES (?, ?, ?, ?)');
+    const initial = [
+      ['Herramientas Eléctricas', 'Zap', 0, 'tools'],
+      ['Herramientas Manuales', 'Wrench', 1, 'tools'],
+      ['Materiales de Construcción', 'Building2', 2, 'raw'],
+      ['Pinturas y Acabados', 'Paintbrush', 3, 'landscaping'],
+      ['Fontanería', 'Droplets', 4, 'landscaping'],
+      ['Electricidad', 'Lightbulb', 5, 'safety'],
+    ];
+    initial.forEach(([name, icon, sortOrder, filterKey], i) => {
+      insert.run(name, icon, sortOrder, filterKey);
+    });
+  }
+}
+
+/** Grupos del filtro lateral de la tienda (Herramientas, Materias primas, etc.). */
+export function ensureFilterGroupsTable() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS filter_groups (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      key TEXT NOT NULL UNIQUE,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+  const count = db.prepare('SELECT COUNT(*) as n FROM filter_groups').get();
+  if (count.n === 0) {
+    const insert = db.prepare('INSERT INTO filter_groups (name, key, sort_order) VALUES (?, ?, ?)');
+    [
+      ['Herramientas', 'tools', 0],
+      ['Materias primas', 'raw', 1],
+      ['Jardinería', 'landscaping', 2],
+      ['Seguridad', 'safety', 3],
+    ].forEach(([name, key, sortOrder], i) => insert.run(name, key, sortOrder));
+  }
+}
+
 /** Asegura que la tabla promo_banners exista (por si el servidor no se reinició tras añadirla). */
 export function ensurePromoBannersTable() {
   db.exec(`

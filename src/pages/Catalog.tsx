@@ -15,30 +15,50 @@ export interface CatalogOffer {
   discountPercent: number;
 }
 
-const SIDEBAR_CATEGORIES = [
-  { label: 'Herramientas', value: 'tools' },
-  { label: 'Materias primas', value: 'raw' },
-  { label: 'Jardinería', value: 'landscaping' },
-  { label: 'Seguridad', value: 'safety' },
-] as const;
-
-const categoryToSidebar: Record<string, string> = {
-  'Herramientas Eléctricas': 'tools',
-  'Herramientas Manuales': 'tools',
-  'Materiales de Construcción': 'raw',
-  'Pinturas y Acabados': 'landscaping',
-  'Fontanería': 'landscaping',
-  'Electricidad': 'safety',
-};
+type CategoryFromApi = { id: string; name: string; icon: string; sortOrder: number; filterKey: string | null };
+type FilterGroupFromApi = { id: string; name: string; key: string; sortOrder: number };
 
 export function Catalog() {
   const { products, loading, error, fetchProducts } = useProductsStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [offersByProductId, setOffersByProductId] = useState<Record<string, CatalogOffer>>({});
+  const [categories, setCategories] = useState<CategoryFromApi[]>([]);
+  const [filterGroups, setFilterGroups] = useState<FilterGroupFromApi[]>([]);
 
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API}/categories`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: CategoryFromApi[]) => {
+        if (cancelled || !Array.isArray(data)) return;
+        setCategories(data);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API}/filter-groups`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((data: FilterGroupFromApi[]) => {
+        if (cancelled || !Array.isArray(data)) return;
+        setFilterGroups(data);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  const categoryToSidebar: Record<string, string> = {};
+  categories.forEach((c) => {
+    if (c.filterKey) categoryToSidebar[c.name] = c.filterKey;
+  });
+
+  const sidebarCategories = filterGroups.map((fg) => ({ value: fg.key, label: fg.name }));
 
   useEffect(() => {
     let cancelled = false;
@@ -168,7 +188,7 @@ export function Catalog() {
                   CATEGORÍAS
                 </h3>
                 <div className="space-y-3">
-                  {SIDEBAR_CATEGORIES.map((cat) => (
+                  {sidebarCategories.map((cat) => (
                     <label
                       key={cat.value}
                       className="flex items-center gap-3 cursor-pointer"
