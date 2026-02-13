@@ -2303,10 +2303,10 @@ export function Admin() {
 
       {/* Modal añadir/editar producto */}
       <Dialog open={productDialogOpen} onOpenChange={(open) => { setProductDialogOpen(open); if (!open) setProductError(null); }}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editingProductId ? 'Editar producto' : 'Añadir producto'}
+              {editingProductId ? `${t('edit')} ${t('admin.product')}` : t('admin.add_product')}
             </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -2314,7 +2314,7 @@ export function Admin() {
               <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{productError}</p>
             )}
             <div className="grid gap-2">
-              <Label htmlFor="name">Nombre *</Label>
+              <Label htmlFor="name">{t('admin.name')} *</Label>
               <Input
                 id="name"
                 value={productForm.name}
@@ -2324,7 +2324,7 @@ export function Admin() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="price">Precio ($) *</Label>
+                <Label htmlFor="price">{t('admin.price')} ($) *</Label>
                 <Input
                   id="price"
                   type="number"
@@ -2337,7 +2337,7 @@ export function Admin() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="stock">Stock *</Label>
+                <Label htmlFor="stock">{t('admin.stock')} *</Label>
                 <Input
                   id="stock"
                   type="number"
@@ -2350,7 +2350,7 @@ export function Admin() {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="category">Categoría *</Label>
+              <Label htmlFor="category">{t('admin.category')} *</Label>
               <select
                 id="category"
                 value={productForm.category}
@@ -2366,7 +2366,7 @@ export function Admin() {
               </select>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="image">Imagen del producto</Label>
+              <Label htmlFor="image">{t('admin.image')}</Label>
               <Input
                 id="image"
                 value={productForm.image}
@@ -2406,7 +2406,7 @@ export function Admin() {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="description">Descripción</Label>
+              <Label htmlFor="description">{t('admin.description')}</Label>
               <textarea
                 id="description"
                 value={productForm.description}
@@ -2454,7 +2454,7 @@ export function Admin() {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="tag">Etiqueta</Label>
+              <Label htmlFor="tag">{t('admin.tag')}</Label>
               <select
                 id="tag"
                 value={productForm.tag ?? ''}
@@ -2488,14 +2488,14 @@ export function Admin() {
               </Link>
             )}
             <Button variant="outline" onClick={() => setProductDialogOpen(false)}>
-              Cancelar
+              {t('cancel')}
             </Button>
             <Button
               onClick={handleSaveProduct}
               disabled={productSaving || !productForm.name.trim() || productForm.price < 0 || productForm.stock < 0 || !productForm.category.trim()}
               className="bg-[#1e5631] hover:bg-[#164a28]"
             >
-              {productSaving ? 'Guardando...' : editingProductId ? 'Guardar cambios' : 'Añadir producto'}
+              {productSaving ? t('loading') : editingProductId ? t('save') : t('admin.add_product')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2503,9 +2503,9 @@ export function Admin() {
 
       {/* Modal añadir/editar slide del carrusel */}
       <Dialog open={slideDialogOpen} onOpenChange={setSlideDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingSlideId ? 'Editar imagen del carrusel' : 'Añadir imagen al carrusel'}</DialogTitle>
+            <DialogTitle>{editingSlideId ? `${t('edit')} ${t('admin.image')}` : `${t('add')} ${t('admin.image')}`}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -2565,14 +2565,14 @@ export function Admin() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSlideDialogOpen(false)}>
-              Cancelar
+              {t('cancel')}
             </Button>
             <Button
               onClick={handleSaveSlide}
               disabled={slideSaving || !slideForm.image.trim()}
               className="bg-[#1e5631] hover:bg-[#164a28]"
             >
-              {slideSaving ? 'Guardando...' : editingSlideId ? 'Guardar cambios' : 'Añadir'}
+              {slideSaving ? t('loading') : editingSlideId ? t('save') : t('add')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2580,9 +2580,9 @@ export function Admin() {
 
       {/* Modal añadir/editar categoría */}
       <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingCategoryId ? 'Editar categoría' : 'Nueva categoría'}</DialogTitle>
+            <DialogTitle>{editingCategoryId ? `${t('edit')} ${t('admin.category')}` : `${t('add')} ${t('admin.category')}`}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -2626,14 +2626,14 @@ export function Admin() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setCategoryDialogOpen(false)}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={() => setCategoryDialogOpen(false)}>{t('cancel')}</Button>
             <Button
               type="button"
               onClick={handleSaveCategory}
               disabled={categorySaving || !categoryForm.name.trim()}
               className="bg-[#1e5631] hover:bg-[#164a28]"
             >
-              {categorySaving ? 'Guardando...' : editingCategoryId ? 'Guardar cambios' : 'Crear'}
+              {categorySaving ? t('loading') : editingCategoryId ? t('save') : 'Crear'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2641,7 +2641,7 @@ export function Admin() {
 
       {/* Confirmar eliminar categoría */}
       <AlertDialog open={!!categoryToDelete} onOpenChange={() => setCategoryToDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[80vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar esta categoría?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2649,15 +2649,15 @@ export function Admin() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteCategory} className="bg-red-600 hover:bg-red-700">Eliminar</AlertDialogAction>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteCategory} className="bg-red-600 hover:bg-red-700">{t('delete')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Modal nuevo/editar grupo de filtro */}
       <Dialog open={filterGroupDialogOpen} onOpenChange={setFilterGroupDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingFilterGroupId ? 'Editar grupo de filtro' : 'Nuevo grupo de filtro'}</DialogTitle>
           </DialogHeader>
@@ -2683,14 +2683,14 @@ export function Admin() {
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setFilterGroupDialogOpen(false)}>Cancelar</Button>
+            <Button type="button" variant="outline" onClick={() => setFilterGroupDialogOpen(false)}>{t('cancel')}</Button>
             <Button
               type="button"
               onClick={handleSaveFilterGroup}
               disabled={filterGroupSaving || !filterGroupForm.name.trim()}
               className="bg-[#1e5631] hover:bg-[#164a28]"
             >
-              {filterGroupSaving ? 'Guardando...' : editingFilterGroupId ? 'Guardar cambios' : 'Crear'}
+              {filterGroupSaving ? t('loading') : editingFilterGroupId ? t('save') : 'Crear'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2698,7 +2698,7 @@ export function Admin() {
 
       {/* Confirmar eliminar grupo de filtro */}
       <AlertDialog open={!!filterGroupToDelete} onOpenChange={() => setFilterGroupToDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[80vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar este grupo de filtro?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2706,15 +2706,15 @@ export function Admin() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteFilterGroup} className="bg-red-600 hover:bg-red-700">Eliminar</AlertDialogAction>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteFilterGroup} className="bg-red-600 hover:bg-red-700">{t('delete')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Modal añadir/editar banner promocional */}
       <Dialog open={promoBannerDialogOpen} onOpenChange={(open) => { setPromoBannerDialogOpen(open); if (!open) setPromoBannerError(null); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingPromoBannerId ? 'Editar banner promocional' : 'Añadir banner promocional'}</DialogTitle>
           </DialogHeader>
@@ -2785,7 +2785,7 @@ export function Admin() {
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setPromoBannerDialogOpen(false)}>
-              Cancelar
+              {t('cancel')}
             </Button>
             <Button
               type="button"
@@ -2793,7 +2793,7 @@ export function Admin() {
               disabled={promoBannerSaving || !promoBannerForm.image.trim()}
               className="bg-[#1e5631] hover:bg-[#164a28]"
             >
-              {promoBannerSaving ? 'Guardando...' : editingPromoBannerId ? 'Guardar cambios' : 'Añadir'}
+              {promoBannerSaving ? t('loading') : editingPromoBannerId ? t('save') : t('add')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2801,7 +2801,7 @@ export function Admin() {
 
       {/* Confirmar eliminar banner promocional */}
       <AlertDialog open={!!promoBannerToDelete} onOpenChange={() => setPromoBannerToDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[80vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>¿Quitar este banner del carrusel promocional?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2809,9 +2809,9 @@ export function Admin() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeletePromoBanner} className="bg-red-600 hover:bg-red-700">
-              Eliminar
+              {t('delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2819,7 +2819,7 @@ export function Admin() {
 
       {/* Confirmar eliminar slide */}
       <AlertDialog open={!!slideToDelete} onOpenChange={() => setSlideToDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[80vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>¿Quitar esta imagen del carrusel?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2827,9 +2827,9 @@ export function Admin() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteSlide} className="bg-red-600 hover:bg-red-700">
-              Eliminar
+              {t('delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2837,7 +2837,7 @@ export function Admin() {
 
       {/* Modal añadir/editar oferta */}
       <Dialog open={offerDialogOpen} onOpenChange={(open) => { setOfferDialogOpen(open); if (!open) setOfferError(null); }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingOfferId ? 'Editar oferta' : 'Nueva oferta'}</DialogTitle>
           </DialogHeader>
@@ -2881,13 +2881,13 @@ export function Admin() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOfferDialogOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setOfferDialogOpen(false)}>{t('cancel')}</Button>
             <Button
               onClick={handleSaveOffer}
               disabled={offerSaving || !offerForm.productId.trim() || offerForm.discountPercent < 0 || offerForm.discountPercent > 100}
               className="bg-[#1e5631] hover:bg-[#164a28]"
             >
-              {offerSaving ? 'Guardando...' : editingOfferId ? 'Guardar cambios' : 'Crear oferta'}
+              {offerSaving ? t('loading') : editingOfferId ? t('save') : 'Crear oferta'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2895,7 +2895,7 @@ export function Admin() {
 
       {/* Confirmar eliminar oferta */}
       <AlertDialog open={!!offerToDelete} onOpenChange={() => setOfferToDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[80vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar esta oferta?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2903,9 +2903,9 @@ export function Admin() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteOffer} className="bg-red-600 hover:bg-red-700">
-              Eliminar
+              {t('delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2913,7 +2913,7 @@ export function Admin() {
 
       {/* Confirmar eliminar producto */}
       <AlertDialog open={!!productToDelete} onOpenChange={(open) => { if (!open) { setProductToDelete(null); setProductDeleteError(null); } }}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[80vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar producto?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -2924,7 +2924,7 @@ export function Admin() {
             <p className="text-sm text-red-600 px-6" role="alert">{productDeleteError}</p>
           )}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={productDeleteInProgress}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={productDeleteInProgress}>{t('cancel')}</AlertDialogCancel>
             <Button
               type="button"
               onClick={(e) => confirmDeleteProduct(e)}
@@ -2945,9 +2945,9 @@ export function Admin() {
       </AlertDialog>
       {/* Modal añadir/editar servicio */}
       <Dialog open={serviceDialogOpen} onOpenChange={(open) => { setServiceDialogOpen(open); if (!open) setServiceError(null); }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingServiceId ? 'Editar servicio' : 'Nuevo servicio'}</DialogTitle>
+            <DialogTitle>{editingServiceId ? `${t('edit')} ${t('admin.services')}` : t('admin.add_service')}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             {serviceError && (
@@ -3038,13 +3038,13 @@ export function Admin() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setServiceDialogOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setServiceDialogOpen(false)}>{t('cancel')}</Button>
             <Button
               onClick={handleSaveService}
               disabled={serviceSaving || !serviceForm.title.trim()}
               className="bg-[#1e5631] hover:bg-[#164a28]"
             >
-              {serviceSaving ? 'Guardando...' : editingServiceId ? 'Guardar cambios' : 'Guardar'}
+              {serviceSaving ? t('loading') : t('save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -3052,7 +3052,7 @@ export function Admin() {
 
       {/* Confirmar eliminar servicio */}
       <AlertDialog open={!!serviceToDelete} onOpenChange={() => setServiceToDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="max-h-[80vh] overflow-y-auto">
           <AlertDialogHeader>
             <AlertDialogTitle>¿Eliminar servicio?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -3060,9 +3060,9 @@ export function Admin() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <DialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>{t('cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteService} className="bg-red-600 hover:bg-red-700">
-              Eliminar
+              {t('delete')}
             </AlertDialogAction>
           </DialogFooter>
         </AlertDialogContent>

@@ -10,6 +10,7 @@ export function Contact() {
   const [form, setForm] = useState({
     fullName: '',
     email: '',
+    phone: '',
     subject: '',
     message: '',
   });
@@ -43,7 +44,7 @@ export function Contact() {
       }
 
       alert(t('contact.success'));
-      setForm({ fullName: '', email: '', subject: '', message: '' });
+      setForm({ fullName: '', email: '', phone: '', subject: '', message: '' });
     } catch (error) {
       console.error('Error submitting form:', error);
       alert(`${t('contact.error')}\n\nError: ` + (error instanceof Error ? error.message : String(error)));
@@ -54,6 +55,7 @@ export function Contact() {
         '',
         form.fullName && `*Nombre:* ${form.fullName}`,
         form.email && `*Correo:* ${form.email}`,
+        form.phone && `*Teléfono:* ${form.phone}`,
         form.subject && `*Asunto:* ${form.subject}`,
         form.message && `*Mensaje:*\n${form.message}`,
       ].filter(Boolean);
@@ -104,6 +106,18 @@ export function Contact() {
                 </a>
               </div>
             </div>
+            <div className="mt-8 rounded-xl overflow-hidden h-48 shadow-lg border-2 border-white/20 relative z-10">
+              <iframe
+                title="Location Map"
+                src="https://maps.google.com/maps?q=6873%20S%20Heather%20way%2C%20West%20Jordan%20UT%2084084&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              ></iframe>
+            </div>
             <div className="flex gap-3 mt-8 relative z-10">
               <a
                 href="#"
@@ -113,7 +127,9 @@ export function Contact() {
                 <Facebook className="w-5 h-5" />
               </a>
               <a
-                href="#"
+                href="https://www.instagram.com/bj_concrete?igsh=MXZ6NXZvamRicnA3dg%3D%3D&utm_source=qr"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
                 aria-label="Instagram"
               >
@@ -139,6 +155,19 @@ export function Contact() {
                   placeholder={t('contact.name_placeholder')}
                   value={form.fullName}
                   onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
+                  className="mt-1.5 border-gray-200"
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone" className="text-[#333] font-medium">
+                  {t('contact.phone')}
+                </Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder={t('contact.phone_placeholder')}
+                  value={form.phone}
+                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
                   className="mt-1.5 border-gray-200"
                 />
               </div>

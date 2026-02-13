@@ -64,6 +64,18 @@ export function Footer() {
                 </div>
               </li>
             </ul>
+            <div className="mt-4 rounded-lg overflow-hidden h-48 border border-gray-700">
+              <iframe
+                title="Location Map"
+                src="https://maps.google.com/maps?q=6873%20S%20Heather%20way%2C%20West%20Jordan%20UT%2084084&t=&z=15&ie=UTF8&iwloc=&output=embed"
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                allowFullScreen
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              ></iframe>
+            </div>
           </div>
 
           {/* Column 4: Redes Sociales */}
@@ -77,7 +89,9 @@ export function Footer() {
                 <Facebook className="w-5 h-5" />
               </a>
               <a
-                href="#"
+                href="https://www.instagram.com/bj_concrete?igsh=MXZ6NXZvamRicnA3dg%3D%3D&utm_source=qr"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-10 h-10 bg-[#1e5631] rounded-full flex items-center justify-center transition-all hover:bg-[#164a28] hover:scale-110"
               >
                 <Instagram className="w-5 h-5" />

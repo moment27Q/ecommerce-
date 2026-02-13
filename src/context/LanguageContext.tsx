@@ -110,6 +110,13 @@ const translations: Translations = {
     'admin.loading_products': { es: 'Cargando productos...', en: 'Loading products...' },
     'admin.no_products': { es: 'No hay productos. Añade uno con el botón superior.', en: 'No products. Add one with the button above.' },
 
+    // Products
+    'product.add_to_cart': { es: 'Añadir al carrito', en: 'Add to cart' },
+    'product.add_more': { es: 'Añadir más', en: 'Add more' },
+    'product.added': { es: 'Añadido', en: 'Added' },
+    'product.coming_soon': { es: 'Próximamente', en: 'Coming soon' },
+    'product.out_of_stock': { es: 'Sin stock', en: 'Out of stock' },
+
     // Admin Services
     'admin.add_service': { es: 'Añadir servicio', en: 'Add Service' },
     'admin.video_url': { es: 'URL del video', en: 'Video URL' },
@@ -117,6 +124,8 @@ const translations: Translations = {
     'admin.loading_services': { es: 'Cargando servicios...', en: 'Loading services...' },
     'admin.no_services': { es: 'No hay servicios. Añade uno con el botón superior.', en: 'No services. Add one with the button above.' },
     'admin.delete_service_confirm': { es: '¿Estás seguro de eliminar este servicio?', en: 'Are you sure you want to delete this service?' },
+    'admin.title': { es: 'Título', en: 'Title' },
+    'admin.description': { es: 'Descripción', en: 'Description' },
 
     // Home
     'home.hero_title': { es: 'TODO LO QUE NECESITAS PARA TU', en: 'EVERYTHING YOU NEED FOR YOUR' },
@@ -169,6 +178,7 @@ const translations: Translations = {
     'contact.title': { es: 'Contáctanos', en: 'Contact Us' },
     'contact.description': { es: 'Estamos aquí para ayudarte a construir tus sueños. Ponte en contacto con nuestro equipo de expertos.', en: 'We are here to help you build your dreams. Get in touch with our team of experts.' },
     'contact.phone': { es: 'Teléfono', en: 'Phone' },
+    'contact.phone_placeholder': { es: 'Ej. +1 801 123 4567', en: 'Ex. +1 801 123 4567' },
     'contact.email': { es: 'Correo electrónico', en: 'Email' },
     'contact.form_title': { es: 'Envíanos un mensaje', en: 'Send us a message' },
     'contact.form_desc': { es: 'Nuestro equipo responderá en menos de 24 horas hábiles.', en: 'Our team will respond within 24 business hours.' },

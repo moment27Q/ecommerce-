@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import type { Product, ProductTag } from '@/types';
 import { useCartStore } from '@/store/cartStore';
 import { Button } from '@/components/ui/button';
+import { useLanguage } from '@/context/LanguageContext';
 
 export interface ProductOffer {
   validUntil: string | null;
@@ -49,6 +50,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product, offer }: ProductCardProps) {
   const { addToCart, items } = useCartStore();
+  const { t } = useLanguage();
   const [showAddedMessage, setShowAddedMessage] = useState(false);
   const [countdown, setCountdown] = useState<string | null>(offer?.validUntil ? formatCountdown(offer.validUntil) : null);
 
@@ -102,7 +104,7 @@ export function ProductCard({ product, offer }: ProductCardProps) {
           {outOfStock ? (
             <img
               src="/out-of-stock.png"
-              alt="Próximamente"
+              alt={t('product.coming_soon')}
               className="w-full h-full object-contain bg-[#f8f8f8] p-2"
             />
           ) : (
@@ -119,7 +121,7 @@ export function ProductCard({ product, offer }: ProductCardProps) {
           )}
           {outOfStock && (
             <span className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold uppercase px-2 py-1 rounded">
-              Sin stock
+              {t('product.out_of_stock')}
             </span>
           )}
         </div>
@@ -179,25 +181,24 @@ export function ProductCard({ product, offer }: ProductCardProps) {
         <Button
           onClick={handleAddToCart}
           disabled={showAddedMessage || outOfStock}
-          className={`w-full mt-auto pt-3 transition-all flex-shrink-0 ${
-            outOfStock
-              ? 'bg-gray-400 cursor-not-allowed text-white font-bold uppercase text-sm'
-              : showAddedMessage
-                ? 'bg-[#2d9d5f] hover:bg-[#2d9d5f]'
-                : 'bg-[#333] hover:bg-[#444] text-white font-bold uppercase text-sm'
-          }`}
+          className={`w-full mt-auto pt-3 transition-all flex-shrink-0 ${outOfStock
+            ? 'bg-gray-400 cursor-not-allowed text-white font-bold uppercase text-sm'
+            : showAddedMessage
+              ? 'bg-[#2d9d5f] hover:bg-[#2d9d5f]'
+              : 'bg-[#333] hover:bg-[#444] text-white font-bold uppercase text-sm'
+            }`}
         >
           {outOfStock ? (
-            <>Próximamente</>
+            <>{t('product.coming_soon')}</>
           ) : showAddedMessage ? (
             <>
               <Check className="w-4 h-4 mr-2" />
-              Añadido
+              {t('product.added')}
             </>
           ) : (
             <>
               <ShoppingCart className="w-4 h-4 mr-2" />
-              {isInCart ? 'Añadir más' : 'Añadir al carrito'}
+              {isInCart ? t('product.add_more') : t('product.add_to_cart')}
             </>
           )}
         </Button>
