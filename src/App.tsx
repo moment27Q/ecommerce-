@@ -12,6 +12,7 @@ import { Contact } from '@/pages/Contact';
 import { ProductDetail } from '@/pages/ProductDetail';
 import { Ofertas } from '@/pages/Ofertas';
 import { EquipoPesado } from '@/pages/EquipoPesado';
+import { Services } from '@/pages/Services';
 import './App.css';
 
 function AppContent() {
@@ -25,6 +26,7 @@ function AppContent() {
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/servicios" element={<Services />} />
           <Route path="/catalogo" element={<Catalog />} />
           <Route path="/ofertas" element={<Ofertas />} />
           <Route path="/equipo-pesado" element={<EquipoPesado />} />
@@ -40,11 +42,15 @@ function AppContent() {
   );
 }
 
+import { LanguageProvider } from '@/context/LanguageContext';
+
 function App() {
   return (
-    <Router>
-      <AppContent />
-    </Router>
+    <LanguageProvider>
+      <Router>
+        <AppContent />
+      </Router>
+    </LanguageProvider>
   );
 }
 

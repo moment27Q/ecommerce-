@@ -27,7 +27,12 @@ import {
   Percent,
   Upload,
   Filter,
+
+  Languages,
+  PenTool,
+  BookOpen,
 } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { useProductsStore, type ProductFormData } from '@/store/productsStore';
 import { useAuthStore } from '@/store/authStore';
@@ -55,7 +60,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import type { Order, Product, ProductTag } from '@/types';
 
-type AdminSection = 'dashboard' | 'orders' | 'products' | 'categories' | 'filterGroups' | 'carousel' | 'promoBanners' | 'offers';
+type AdminSection = 'dashboard' | 'orders' | 'products' | 'categories' | 'filterGroups' | 'carousel' | 'promoBanners' | 'offers' | 'services';
 
 export interface Offer {
   id: number;
@@ -108,6 +113,17 @@ export interface FilterGroup {
   sortOrder: number;
 }
 
+export interface ServiceItem {
+  id: number;
+  title: string;
+  category: string;
+  description: string;
+  image: string;
+  video: string;
+  content: string;
+  created_at: string;
+}
+
 const PRODUCT_TAGS: ProductTag[] = ['IN STOCK', 'SALE', 'TOOLS', 'BULK PRICING'];
 
 const emptyProductForm: ProductFormData = {
@@ -126,6 +142,7 @@ export function Admin() {
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
   const { fetchProducts } = useProductsStore();
+  const { t, language, setLanguage } = useLanguage();
 
   const [section, setSection] = useState<AdminSection>('dashboard');
   const [products, setProducts] = useState<Product[]>([]);
@@ -185,7 +202,17 @@ export function Admin() {
   const [editingFilterGroupId, setEditingFilterGroupId] = useState<string | null>(null);
   const [filterGroupForm, setFilterGroupForm] = useState({ name: '', key: '' });
   const [filterGroupSaving, setFilterGroupSaving] = useState(false);
+
   const [filterGroupToDelete, setFilterGroupToDelete] = useState<FilterGroup | null>(null);
+
+  const [services, setServices] = useState<ServiceItem[]>([]);
+  const [servicesLoading, setServicesLoading] = useState(false);
+  const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
+  const [editingServiceId, setEditingServiceId] = useState<number | null>(null);
+  const [serviceForm, setServiceForm] = useState({ title: '', category: '', description: '', image: '', video: '', content: '' });
+  const [serviceSaving, setServiceSaving] = useState(false);
+  const [serviceError, setServiceError] = useState<string | null>(null);
+  const [serviceToDelete, setServiceToDelete] = useState<ServiceItem | null>(null);
 
   const loadOrders = useCallback(async () => {
     setOrdersLoading(true);
@@ -269,9 +296,114 @@ export function Admin() {
     }
   }, []);
 
+  const loadServices = useCallback(async () => {
+    setServicesLoading(true);
+    try {
+      const res = await fetch(`${API}/services`);
+      if (!res.ok) throw new Error('Error al cargar servicios');
+      const data = await res.json();
+      setServices(data);
+    } catch {
+      setServices([]);
+    } finally {
+      setServicesLoading(false);
+    }
+  }, []);
+
+  const openAddService = () => {
+    setEditingServiceId(null);
+    setServiceForm({ title: '', category: 'Residencial', description: '', image: '', video: '', content: '' });
+    setServiceError(null);
+    setServiceDialogOpen(true);
+  };
+
+  const openEditService = (service: ServiceItem) => {
+    setEditingServiceId(service.id);
+    setServiceForm({
+      title: service.title,
+      category: service.category,
+      description: service.description,
+      image: service.image,
+      video: service.video || '',
+      content: service.content || '',
+    });
+    setServiceError(null);
+    setServiceDialogOpen(true);
+  };
+
+  const handleSaveService = async () => {
+    if (!serviceForm.title.trim() || !serviceForm.description.trim() || !serviceForm.category) {
+      setServiceError('Completa título, descripción y categoría.');
+      return;
+    }
+    setServiceSaving(true);
+    setServiceError(null);
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      const body = JSON.stringify(serviceForm);
+      if (editingServiceId) {
+        const res = await fetchWithAuth(`${API}/services/${editingServiceId}`, {
+          method: 'PUT',
+          headers,
+          body,
+        });
+        if (res.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Error al actualizar');
+        }
+      } else {
+        const res = await fetchWithAuth(`${API}/services`, {
+          method: 'POST',
+          headers,
+          body,
+        });
+        if (res.status === 401) {
+          logout();
+          navigate('/login');
+          return;
+        }
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Error al crear');
+        }
+      }
+      setServiceDialogOpen(false);
+      setServiceForm({ title: '', category: 'Residencial', description: '', image: '', video: '', content: '' });
+      setEditingServiceId(null);
+      await loadServices();
+    } catch (e) {
+      setServiceError(e instanceof Error ? e.message : 'Error al guardar');
+    } finally {
+      setServiceSaving(false);
+    }
+  };
+
+  const confirmDeleteService = async () => {
+    if (!serviceToDelete) return;
+    try {
+      const res = await fetchWithAuth(`${API}/services/${serviceToDelete.id}`, { method: 'DELETE' });
+      if (res.status === 401) {
+        logout();
+        navigate('/login');
+        return;
+      }
+      if (!res.ok) throw new Error('Error al eliminar');
+      setServiceToDelete(null);
+      await loadServices();
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
     if (section === 'carousel') loadCarousel();
-  }, [section, loadCarousel]);
+    if (section === 'services') loadServices();
+  }, [section, loadCarousel, loadServices]);
 
   const loadPromoBanners = useCallback(async () => {
     setPromoBannersLoading(true);
@@ -318,6 +450,8 @@ export function Admin() {
       setFilterGroupsLoading(false);
     }
   }, []);
+
+
 
   useEffect(() => {
     if (section === 'categories' || section === 'products') loadCategories();
@@ -1079,97 +1213,106 @@ export function Admin() {
         {/* Sidebar - Menú principal */}
         <aside className="w-64 bg-[#1e5631] text-white fixed left-0 top-[8.75rem] bottom-0 hidden lg:flex lg:flex-col z-40">
           <div className="flex flex-col flex-1 min-h-0 p-5">
-            <p className="text-xs font-bold uppercase tracking-wider text-white/70 mb-4 px-3 shrink-0">Menú principal</p>
+            <p className="text-xs font-bold uppercase tracking-wider text-white/70 mb-4 px-3 shrink-0">{t('admin.menu')}</p>
             <nav className="space-y-1 flex-1 overflow-y-auto min-h-0">
               <button
                 onClick={() => setSection('dashboard')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
-                  section === 'dashboard' ? 'bg-white/20' : 'hover:bg-white/10'
-                }`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${section === 'dashboard' ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
               >
                 <span className={`w-2 h-2 rounded-sm shrink-0 ${section === 'dashboard' ? 'bg-[#e85d04]' : 'bg-transparent'}`} />
                 <LayoutDashboard className="w-5 h-5 shrink-0" />
-                <span className="min-w-0 flex-1">Panel</span>
+                <span className="min-w-0 flex-1">{t('admin.dashboard')}</span>
               </button>
               <button
                 onClick={() => setSection('orders')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
-                  section === 'orders' ? 'bg-white/20' : 'hover:bg-white/10'
-                }`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${section === 'orders' ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
               >
                 <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
                 <ShoppingBag className="w-5 h-5 shrink-0" />
-                <span className="min-w-0 flex-1">Compras / Pedidos</span>
+                <span className="min-w-0 flex-1">{t('admin.orders')}</span>
               </button>
               <button
                 onClick={() => setSection('products')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
-                  section === 'products' ? 'bg-white/20' : 'hover:bg-white/10'
-                }`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${section === 'products' ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
               >
                 <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
                 <Package className="w-5 h-5 shrink-0" />
-                <span className="min-w-0 flex-1">Productos</span>
+                <span className="min-w-0 flex-1">{t('admin.products')}</span>
               </button>
               <button
                 onClick={() => setSection('categories')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
-                  section === 'categories' ? 'bg-white/20' : 'hover:bg-white/10'
-                }`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${section === 'categories' ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
               >
                 <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
                 <Layers className="w-5 h-5 shrink-0" />
-                <span className="min-w-0 flex-1">Categorías</span>
+                <span className="min-w-0 flex-1">{t('admin.categories')}</span>
               </button>
               <button
                 onClick={() => setSection('filterGroups')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
-                  section === 'filterGroups' ? 'bg-white/20' : 'hover:bg-white/10'
-                }`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${section === 'filterGroups' ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
               >
                 <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
                 <Filter className="w-5 h-5 shrink-0" />
-                <span className="min-w-0 flex-1">Grupos de filtro</span>
+                <span className="min-w-0 flex-1">{t('admin.filterGroups')}</span>
               </button>
               <button
                 onClick={() => setSection('carousel')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
-                  section === 'carousel' ? 'bg-white/20' : 'hover:bg-white/10'
-                }`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${section === 'carousel' ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
               >
                 <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
                 <ImageIcon className="w-5 h-5 shrink-0" />
-                <span className="min-w-0 flex-1">Carrusel</span>
+                <span className="min-w-0 flex-1">{t('admin.carousel')}</span>
               </button>
               <button
                 onClick={() => setSection('promoBanners')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
-                  section === 'promoBanners' ? 'bg-white/20' : 'hover:bg-white/10'
-                }`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${section === 'promoBanners' ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
               >
                 <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
                 <LayoutGrid className="w-5 h-5 shrink-0" />
-                <span className="min-w-0 flex-1">Banners promocionales</span>
+                <span className="min-w-0 flex-1">{t('admin.promoBanners')}</span>
               </button>
               <button
                 onClick={() => setSection('offers')}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${
-                  section === 'offers' ? 'bg-white/20' : 'hover:bg-white/10'
-                }`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${section === 'offers' ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
               >
                 <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
                 <Percent className="w-5 h-5 shrink-0" />
-                <span className="min-w-0 flex-1">Ofertas</span>
+                <span className="min-w-0 flex-1">{t('admin.offers')}</span>
+              </button>
+              <button
+                onClick={() => setSection('services')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors text-left ${section === 'services' ? 'bg-white/20' : 'hover:bg-white/10'
+                  }`}
+              >
+                <span className="w-2 h-2 rounded-sm shrink-0 bg-transparent" />
+                <BookOpen className="w-5 h-5 shrink-0" />
+                <span className="min-w-0 flex-1">{t('admin.services')}</span>
               </button>
             </nav>
             <div className="shrink-0 mt-4 pt-4 border-t border-white/20">
+              <button
+                onClick={() => setLanguage(language === 'es' ? 'en' : 'es')}
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-white/90 text-left mb-2"
+              >
+                <span className="w-2 h-2 shrink-0 bg-transparent" aria-hidden />
+                <Languages className="w-5 h-5 shrink-0" />
+                <span className="min-w-0 flex-1">{language === 'es' ? 'English' : 'Español'}</span>
+              </button>
               <button
                 onClick={() => { logout(); navigate('/login'); }}
                 className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/10 transition-colors text-white/90 text-left"
               >
                 <span className="w-2 h-2 shrink-0 bg-transparent" aria-hidden />
                 <LogOut className="w-5 h-5 shrink-0" />
-                <span className="min-w-0 flex-1">Cerrar sesión</span>
+                <span className="min-w-0 flex-1">{t('admin.logout')}</span>
               </button>
             </div>
           </div>
@@ -1181,8 +1324,8 @@ export function Admin() {
             <>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
                 <div>
-                  <h1 className="text-2xl font-bold text-[#333]">Panel de Control</h1>
-                  <p className="text-gray-500 text-sm mt-1">Bienvenido de nuevo, aquí tienes el resumen de hoy.</p>
+                  <h1 className="text-2xl font-bold text-[#333]">{t('admin.dashboard')}</h1>
+                  <p className="text-gray-500 text-sm mt-1">{t('admin.welcome')}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <Button variant="outline" className="border-gray-200 text-gray-600">
@@ -1194,7 +1337,7 @@ export function Admin() {
                     className="bg-[#e85d04] hover:bg-[#d35400] text-white"
                   >
                     <Plus className="w-4 h-4 mr-2" />
-                    Nuevo Producto
+                    {t('admin.add_product')}
                   </Button>
                 </div>
               </div>
@@ -1203,7 +1346,7 @@ export function Admin() {
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-gray-500 text-sm mb-1">Total Pedidos</p>
+                      <p className="text-gray-500 text-sm mb-1">{t('admin.total_orders')}</p>
                       <p className="text-2xl font-bold text-[#333]">{stats.total}</p>
                       <p className={`text-xs font-medium mt-2 ${pctTotal >= 0 ? 'text-blue-600' : 'text-red-600'}`}>{fmtPct(pctTotal)}</p>
                     </div>
@@ -1215,7 +1358,7 @@ export function Admin() {
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-gray-500 text-sm mb-1">Pendientes</p>
+                      <p className="text-gray-500 text-sm mb-1">{t('admin.pending')}</p>
                       <p className="text-2xl font-bold text-[#333]">{stats.pending}</p>
                       <p className={`text-xs font-medium mt-2 ${pctPending >= 0 ? 'text-amber-600' : 'text-red-600'}`}>{fmtPct(pctPending)}</p>
                     </div>
@@ -1227,7 +1370,7 @@ export function Admin() {
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-gray-500 text-sm mb-1">Enviados</p>
+                      <p className="text-gray-500 text-sm mb-1">{t('admin.shipped')}</p>
                       <p className="text-2xl font-bold text-[#333]">{stats.shipped + stats.delivered}</p>
                       <p className={`text-xs font-medium mt-2 ${pctShipped >= 0 ? 'text-green-600' : 'text-red-600'}`}>{fmtPct(pctShipped)}</p>
                     </div>
@@ -1239,7 +1382,7 @@ export function Admin() {
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="text-gray-500 text-sm mb-1">Ventas Totales</p>
+                      <p className="text-gray-500 text-sm mb-1">{t('admin.total_sales')}</p>
                       <p className="text-2xl font-bold text-[#333]">
                         S/ {stats.totalRevenue.toLocaleString('es-PE', { minimumFractionDigits: 2 })}
                       </p>
@@ -1255,15 +1398,15 @@ export function Admin() {
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
                 <div className="p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
-                    <h2 className="text-lg font-bold text-[#333]">Pedidos Recientes</h2>
-                    <p className="text-gray-500 text-sm mt-0.5">Listado de las últimas compras realizadas en la plataforma.</p>
+                    <h2 className="text-lg font-bold text-[#333]">{t('admin.recent_orders')}</h2>
+                    <p className="text-gray-500 text-sm mt-0.5">{t('admin.recent_orders_desc')}</p>
                   </div>
                   <button
                     type="button"
                     onClick={() => setSection('orders')}
                     className="text-[#1e5631] font-medium hover:underline text-sm shrink-0"
                   >
-                    Ver todos
+                    {t('admin.view_all')}
                   </button>
                 </div>
                 <div className="overflow-x-auto">
@@ -1282,7 +1425,7 @@ export function Admin() {
                       {filteredOrders.length === 0 ? (
                         <tr>
                           <td colSpan={6} className="px-6 py-8 text-center text-gray-500 text-sm">
-                            No hay pedidos recientes.
+                            {t('admin.no_recent_orders')}
                           </td>
                         </tr>
                       ) : (
@@ -1341,7 +1484,7 @@ export function Admin() {
           {/* ========== PEDIDOS / QUIENES COMPRARON ========== */}
           {section === 'orders' && (
             <>
-              <h1 className="text-2xl font-bold text-[#333] mb-6">Compras / Quién compró</h1>
+              <h1 className="text-2xl font-bold text-[#333] mb-6">{t('admin.orders_title')}</h1>
               <div className="bg-white rounded-lg shadow-sm">
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -1350,7 +1493,7 @@ export function Admin() {
                       <div className="relative">
                         <Input
                           type="text"
-                          placeholder="Buscar por cliente o ID..."
+                          placeholder={t('admin.search_placeholder')}
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
                           className="w-64 pr-10 bg-[#f8f8f8] border-gray-200"
@@ -1364,12 +1507,12 @@ export function Admin() {
                         }
                         className="px-4 py-2 bg-[#f8f8f8] rounded-lg border border-gray-200 text-sm"
                       >
-                        <option value="all">Todos los estados</option>
-                        <option value="pending">Pendiente</option>
-                        <option value="paid">Pagado</option>
-                        <option value="shipped">Enviado</option>
-                        <option value="delivered">Entregado</option>
-                        <option value="cancelled">Cancelado</option>
+                        <option value="all">{t('admin.all_status')}</option>
+                        <option value="pending">{t('admin.status_pending')}</option>
+                        <option value="paid">{t('admin.status_paid')}</option>
+                        <option value="shipped">{t('admin.status_shipped')}</option>
+                        <option value="delivered">{t('admin.status_delivered')}</option>
+                        <option value="cancelled">{t('admin.status_cancelled')}</option>
                       </select>
                     </div>
                   </div>
@@ -1379,13 +1522,13 @@ export function Admin() {
                     <thead className="bg-[#f8f8f8]">
                       <tr>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                          Pedido
+                          {t('admin.recent_orders').replace('Pedidos Recientes', 'Pedido')}
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                          Cliente
+                          {t('admin.client')}
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                          Productos
+                          {t('admin.products_title')}
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
                           Total
@@ -1394,13 +1537,13 @@ export function Admin() {
                           Pago
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                          Estado
+                          {t('admin.status')}
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                          Fecha
+                          {t('admin.date')}
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                          Acciones
+                          {t('admin.actions')}
                         </th>
                       </tr>
                     </thead>
@@ -1411,7 +1554,7 @@ export function Admin() {
                             colSpan={8}
                             className="px-6 py-12 text-center text-gray-500"
                           >
-                            Cargando pedidos...
+                            {t('admin.loading_orders')}
                           </td>
                         </tr>
                       ) : filteredOrders.length === 0 ? (
@@ -1420,7 +1563,7 @@ export function Admin() {
                             colSpan={8}
                             className="px-6 py-12 text-center text-gray-500"
                           >
-                            No hay pedidos
+                            {t('admin.no_orders')}
                           </td>
                         </tr>
                       ) : (
@@ -1507,17 +1650,21 @@ export function Admin() {
             </>
           )}
 
-          {/* ========== PRODUCTOS (CRUD) ========== */}
-          {section === 'products' && (
+
+          {/* ========== SERVICIOS / BLOG ========== */}
+          {section === 'services' && (
             <>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                <h1 className="text-2xl font-bold text-[#333]">Productos</h1>
+                <div>
+                  <h1 className="text-2xl font-bold text-[#333]">{t('admin.services')}</h1>
+                  <p className="text-gray-500 text-sm mt-1">Gestión de artículos y servicios</p>
+                </div>
                 <Button
-                  onClick={openAddProduct}
+                  onClick={openAddService}
                   className="bg-[#1e5631] hover:bg-[#164a28] text-white"
                 >
                   <Plus className="w-4 h-4 mr-2" />
-                  Añadir producto
+                  {t('admin.add_service')}
                 </Button>
               </div>
               <div className="bg-white rounded-lg shadow-sm overflow-hidden">
@@ -1526,25 +1673,124 @@ export function Admin() {
                     <thead className="bg-[#f8f8f8]">
                       <tr>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                          Imagen
+                          {t('admin.image')}
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                          Nombre
+                          {t('admin.title')}
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                          Categoría
+                          {t('admin.category')}
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                          Precio
+                          Video
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                          Stock
+                          {t('admin.actions')}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {servicesLoading ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                            {t('admin.loading_services')}
+                          </td>
+                        </tr>
+                      ) : services.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                            {t('admin.no_services')}
+                          </td>
+                        </tr>
+                      ) : (
+                        services.map((service) => (
+                          <tr key={service.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
+                                {service.image ? (
+                                  <img src={service.image} alt="" className="w-full h-full object-cover" />
+                                ) : (
+                                  <ImageIcon className="w-5 h-5 text-gray-400" />
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 font-medium text-[#333]">{service.title}</td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                {service.category}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {service.video ? <CheckCircle className="w-4 h-4 text-green-500" /> : <span className="text-gray-400">-</span>}
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => openEditService(service)}
+                                  className="text-gray-500 hover:text-[#333]"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setServiceToDelete(service)}
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* ========== PRODUCTOS (CRUD) ========== */}
+          {section === 'products' && (
+            <>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                <h1 className="text-2xl font-bold text-[#333]">{t('admin.products_title')}</h1>
+                <Button
+                  onClick={openAddProduct}
+                  className="bg-[#1e5631] hover:bg-[#164a28] text-white"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  {t('admin.add_product')}
+                </Button>
+              </div>
+              <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-[#f8f8f8]">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
+                          {t('admin.image')}
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                          Etiqueta
+                          {t('admin.name')}
                         </th>
                         <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                          Acciones
+                          {t('admin.category')}
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
+                          {t('admin.price')}
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
+                          {t('admin.stock')}
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
+                          {t('admin.tag')}
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
+                          {t('admin.actions')}
                         </th>
                       </tr>
                     </thead>
@@ -1552,13 +1798,13 @@ export function Admin() {
                       {productsLoading ? (
                         <tr>
                           <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
-                            Cargando productos...
+                            {t('admin.loading_products')}
                           </td>
                         </tr>
                       ) : products.length === 0 ? (
                         <tr>
                           <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
-                            No hay productos. Añade uno con el botón superior.
+                            {t('admin.no_products')}
                           </td>
                         </tr>
                       ) : (
@@ -2695,6 +2941,130 @@ export function Admin() {
               )}
             </Button>
           </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      {/* Modal añadir/editar servicio */}
+      <Dialog open={serviceDialogOpen} onOpenChange={(open) => { setServiceDialogOpen(open); if (!open) setServiceError(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingServiceId ? 'Editar servicio' : 'Nuevo servicio'}</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            {serviceError && (
+              <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{serviceError}</p>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="service-title">{t('admin.title')} *</Label>
+                <Input
+                  id="service-title"
+                  value={serviceForm.title}
+                  onChange={(e) => setServiceForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="Ej. Construcción Residencial"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="service-category">{t('admin.category')} *</Label>
+                <Input
+                  id="service-category"
+                  value={serviceForm.category}
+                  onChange={(e) => setServiceForm((f) => ({ ...f, category: e.target.value }))}
+                  placeholder="Ej. Residencial, Comercial..."
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="service-image">{t('admin.image')} (URL o Subir)</Label>
+              <Input
+                id="service-image"
+                value={serviceForm.image}
+                onChange={(e) => setServiceForm((f) => ({ ...f, image: e.target.value }))}
+                placeholder="https://..."
+              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  id="service-file"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file || !file.type.startsWith('image/')) return;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const result = reader.result;
+                      if (typeof result === 'string') setServiceForm((f) => ({ ...f, image: result }));
+                    };
+                    reader.readAsDataURL(file);
+                    e.target.value = '';
+                  }}
+                />
+                <Label
+                  htmlFor="service-file"
+                  className="cursor-pointer text-xs text-[#1e5631] hover:underline"
+                >
+                  Subir imagen
+                </Label>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="service-video">{t('admin.video_url')} (Opcional)</Label>
+              <Input
+                id="service-video"
+                value={serviceForm.video}
+                onChange={(e) => setServiceForm((f) => ({ ...f, video: e.target.value }))}
+                placeholder="https://youtube.com/..."
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="service-desc">{t('admin.description')} *</Label>
+              <textarea
+                id="service-desc"
+                className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={serviceForm.description}
+                onChange={(e) => setServiceForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder="Breve descripción del servicio..."
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="service-content">{t('admin.content')} (Detallado)</Label>
+              <textarea
+                id="service-content"
+                className="flex min-h-[150px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                value={serviceForm.content}
+                onChange={(e) => setServiceForm((f) => ({ ...f, content: e.target.value }))}
+                placeholder="Contenido completo del artículo o servicio..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setServiceDialogOpen(false)}>Cancelar</Button>
+            <Button
+              onClick={handleSaveService}
+              disabled={serviceSaving || !serviceForm.title.trim()}
+              className="bg-[#1e5631] hover:bg-[#164a28]"
+            >
+              {serviceSaving ? 'Guardando...' : editingServiceId ? 'Guardar cambios' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmar eliminar servicio */}
+      <AlertDialog open={!!serviceToDelete} onOpenChange={() => setServiceToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Eliminar servicio?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('admin.delete_service_confirm')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <DialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteService} className="bg-red-600 hover:bg-red-700">
+              Eliminar
+            </AlertDialogAction>
+          </DialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

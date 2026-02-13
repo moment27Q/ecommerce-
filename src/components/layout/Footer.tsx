@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import { Phone, Mail, Clock, Facebook, Instagram, Twitter } from 'lucide-react';
+import { useLanguage } from '@/context/LanguageContext';
 
 export function Footer() {
+  const { t } = useLanguage();
   const currentYear = new Date().getFullYear();
 
   return (
@@ -14,21 +16,21 @@ export function Footer() {
               <span className="text-xl font-bold text-[#1e5631]">JJ construccion</span>
             </Link>
             <p className="text-gray-400 text-sm leading-relaxed">
-              Suministros de concreto y jardinería. Equipo y materiales de calidad para tus proyectos.
+              {t('footer.description')}
             </p>
           </div>
 
           {/* Column 2: Categorías Populares */}
           <div>
-            <h4 className="text-lg font-medium mb-4 text-[#c8a48c]">Categorías Populares</h4>
+            <h4 className="text-lg font-medium mb-4 text-[#c8a48c]">{t('footer.popular_categories')}</h4>
             <ul className="space-y-2">
               {[
-                'Herramientas Eléctricas',
-                'Herramientas Manuales',
-                'Materiales de Construcción',
-                'Pinturas y Acabados',
-                'Fontanería',
-                'Electricidad',
+                t('footer.power_tools'),
+                t('footer.manual_tools'),
+                t('footer.construction_materials'),
+                t('footer.paints_finishes'),
+                t('footer.plumbing'),
+                t('footer.electricity'),
               ].map((category) => (
                 <li key={category}>
                   <Link
@@ -44,11 +46,11 @@ export function Footer() {
 
           {/* Column 3: Atención al Cliente */}
           <div>
-            <h4 className="text-lg font-bold mb-4 text-[#2d9d5f]">Contact</h4>
+            <h4 className="text-lg font-bold mb-4 text-[#2d9d5f]">{t('footer.contact_title')}</h4>
             <ul className="space-y-3">
               <li className="flex items-center gap-3">
                 <Phone className="w-5 h-5 text-[#e85d04]" />
-                <a href="tel:941576393" className="text-gray-400 text-sm hover:text-[#2d9d5f] transition-colors">941 576 393</a>
+                <a href="tel:+18013472165" className="text-gray-400 text-sm hover:text-[#2d9d5f] transition-colors">+1 (801) 347-2165</a>
               </li>
               <li className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-[#e85d04]" />
@@ -57,8 +59,8 @@ export function Footer() {
               <li className="flex items-start gap-3">
                 <Clock className="w-5 h-5 text-[#e85d04] mt-0.5" />
                 <div className="text-gray-400 text-sm">
-                  <p>Lun - Vie: 8:00 - 18:00</p>
-                  <p>Sáb: 8:00 - 13:00</p>
+                  <p>{t('footer.mon_fri')}: 8:00 - 18:00</p>
+                  <p>{t('footer.sat')}: 8:00 - 13:00</p>
                 </div>
               </li>
             </ul>
@@ -66,7 +68,7 @@ export function Footer() {
 
           {/* Column 4: Redes Sociales */}
           <div>
-            <h4 className="text-lg font-bold mb-4 text-[#2d9d5f]">Síguenos</h4>
+            <h4 className="text-lg font-bold mb-4 text-[#2d9d5f]">{t('footer.follow_us')}</h4>
             <div className="flex gap-4">
               <a
                 href="#"
@@ -95,7 +97,7 @@ export function Footer() {
       <div className="border-t border-gray-700">
         <div className="container-custom py-4">
           <p className="text-center text-gray-500 text-sm">
-            © {currentYear} JJ construccion. Todos los derechos reservados.
+            © {currentYear} JJ construccion. {t('footer.rights')}
           </p>
         </div>
       </div>

@@ -10,8 +10,9 @@
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^11.6.0",
     "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
     "express": "^4.21.1",
-    "jsonwebtoken": "^9.0.2"
-  },
-  "devDependencies": {}
+    "jsonwebtoken": "^9.0.2",
+    "twilio": "^5.12.1"
+  }
 }

@@ -1,16 +1,73 @@
+import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { db, initDb, ensurePromoBannersTable, ensureCategoriesTable, ensureFilterGroupsTable } from './db.js';
+import twilio from 'twilio';
+import { db, initDb, ensurePromoBannersTable, ensureCategoriesTable, ensureFilterGroupsTable, ensureServicesTable } from './db.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'clave-secreta-cambiar-en-produccion';
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3002;
+
+// Twilio Config
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_FROM_NUMBER = process.env.TWILIO_FROM_NUMBER;
+const TWILIO_TO_NUMBER = process.env.TWILIO_TO_NUMBER;
+
+function getTwilioClient() {
+  if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) return null;
+  return twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+}
+
 initDb();
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
+
+app.post('/api/contact/sms', async (req, res) => {
+  const { fullName, email, subject, message } = req.body || {};
+
+  if (!message) {
+    return res.status(400).json({ error: 'El mensaje es obligatorio' });
+  }
+
+  const body = `Nuevo mensaje de contacto:\n\n` +
+    (fullName ? `Nombre: ${fullName}\n` : '') +
+    (email ? `Correo: ${email}\n` : '') +
+    (subject ? `Asunto: ${subject}\n` : '') +
+    `Mensaje:\n${message}`;
+
+  try {
+    const client = getTwilioClient();
+    if (!client) {
+      return res.status(500).json({
+        error: 'Twilio no está configurado',
+        details: 'Faltan TWILIO_ACCOUNT_SID y/o TWILIO_AUTH_TOKEN en variables de entorno',
+      });
+    }
+    if (!TWILIO_FROM_NUMBER || !TWILIO_TO_NUMBER) {
+      return res.status(500).json({
+        error: 'Twilio no está configurado',
+        details: 'Faltan TWILIO_FROM_NUMBER y/o TWILIO_TO_NUMBER en variables de entorno',
+      });
+    }
+
+    const msg = await client.messages.create({
+      body: body,
+      from: TWILIO_FROM_NUMBER,
+      to: TWILIO_TO_NUMBER
+    });
+
+    console.log('SMS sent:', msg.sid);
+    res.json({ success: true, sid: msg.sid });
+  } catch (error) {
+    console.error('Error sending SMS:', error);
+    // Return detailed error so we can debug if the number is missing
+    res.status(500).json({ error: 'Error enviando SMS', details: error.message });
+  }
+});
 
 function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -396,8 +453,56 @@ app.put('/api/offers/:id', authMiddleware, (req, res) => {
 });
 
 app.delete('/api/offers/:id', authMiddleware, (req, res) => {
-  const result = db.prepare('DELETE FROM offers WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Oferta no encontrada' });
+  res.status(204).send();
+});
+
+// Servicios / Blog (Público)
+app.get('/api/services', (req, res) => {
+  ensureServicesTable();
+  const rows = db.prepare('SELECT id, title, category, description, image, video, content, created_at FROM services ORDER BY created_at DESC').all();
+  res.json(rows);
+});
+
+// Servicios / Blog (Admin)
+app.post('/api/services', authMiddleware, (req, res) => {
+  ensureServicesTable();
+  const { title, category, description, image, video, content } = req.body || {};
+  if (!title || !category || !description) return res.status(400).json({ error: 'Título, categoría y descripción son obligatorios' });
+
+  db.prepare('INSERT INTO services (title, category, description, image, video, content) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(title.trim(), category.trim(), description.trim(), image || null, video || null, content || null);
+
+  const row = db.prepare('SELECT * FROM services ORDER BY id DESC LIMIT 1').get();
+  res.status(201).json(row);
+});
+
+app.put('/api/services/:id', authMiddleware, (req, res) => {
+  const { id } = req.params;
+  const { title, category, description, image, video, content } = req.body || {};
+
+  const existing = db.prepare('SELECT * FROM services WHERE id = ?').get(id);
+  if (!existing) return res.status(404).json({ error: 'Servicio no encontrado' });
+
+  db.prepare('UPDATE services SET title = ?, category = ?, description = ?, image = ?, video = ?, content = ? WHERE id = ?')
+    .run(
+      title ? title.trim() : existing.title,
+      category ? category.trim() : existing.category,
+      description ? description.trim() : existing.description,
+      image !== undefined ? image : existing.image,
+      video !== undefined ? video : existing.video,
+      content !== undefined ? content : existing.content,
+      id
+    );
+
+  const row = db.prepare('SELECT * FROM services WHERE id = ?').get(id);
+  res.json(row);
+});
+
+app.delete('/api/services/:id', authMiddleware, (req, res) => {
+  const { id } = req.params;
+  const result = db.prepare('DELETE FROM services WHERE id = ?').run(id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Servicio no encontrado' });
   res.status(204).send();
 });
 

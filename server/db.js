@@ -144,3 +144,19 @@ export function ensurePromoBannersTable() {
     );
   `);
 }
+
+/** Asegura que la tabla services exista (blog/servicios). */
+export function ensureServicesTable() {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS services (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      category TEXT NOT NULL,
+      description TEXT NOT NULL,
+      image TEXT,
+      video TEXT,
+      content TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+}

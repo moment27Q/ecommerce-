@@ -5,12 +5,14 @@ import { useAuthStore } from '@/store/authStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useLanguage } from '@/context/LanguageContext';
 
 export function Login() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const { t } = useLanguage();
 
   const login = useAuthStore((s) => s.login);
   const navigate = useNavigate();
@@ -26,7 +28,7 @@ export function Login() {
     if (result.ok) {
       navigate(from, { replace: true });
     } else {
-      setError(result.error || 'Error al iniciar sesión');
+      setError(result.error || t('login.error'));
     }
   };
 
@@ -35,8 +37,8 @@ export function Login() {
       <div className="w-full max-w-md">
         <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-8">
           <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-[#333] mb-2">Acceso Admin</h1>
-            <p className="text-gray-500 text-sm">JJ construccion</p>
+            <h1 className="text-2xl font-bold text-[#333] mb-2">{t('login.title')}</h1>
+            <p className="text-gray-500 text-sm">{t('login.subtitle')}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -47,7 +49,7 @@ export function Login() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="username">Usuario</Label>
+              <Label htmlFor="username">{t('login.username')}</Label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input
@@ -64,7 +66,7 @@ export function Login() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Contraseña</Label>
+              <Label htmlFor="password">{t('login.password')}</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input
@@ -86,18 +88,18 @@ export function Login() {
               className="w-full bg-[#1e5631] hover:bg-[#164a28] text-white font-bold h-11"
             >
               {loading ? (
-                'Entrando...'
+                t('login.logging_in')
               ) : (
                 <>
                   <LogIn className="w-4 h-4 mr-2" />
-                  Iniciar sesión
+                  {t('login.login_button')}
                 </>
               )}
             </Button>
           </form>
 
           <p className="text-center text-gray-400 text-xs mt-6">
-            Por defecto: usuario <strong>admin</strong>, contraseña <strong>admin123</strong>
+            {t('login.default_cred')} <strong>admin</strong>, {t('login.password_lbl')} <strong>admin123</strong>
           </p>
         </div>
       </div>

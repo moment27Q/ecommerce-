@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useLanguage } from '@/context/LanguageContext';
 import { ArrowRight, Zap, Wrench, Building2, Paintbrush, Droplets, Lightbulb } from 'lucide-react';
 import { ProductCard } from '@/components/product/ProductCard';
 import { useProductsStore } from '@/store/productsStore';
 import { Button } from '@/components/ui/button';
+import { ServicesSection } from '@/components/ServicesSection';
 
 const HERO_SLIDES_FALLBACK = [
   { src: '/hero-banner.jpg', alt: 'Obra en construcción' },
@@ -29,6 +31,7 @@ interface CatalogOffer {
 }
 
 export function Home() {
+  const { t } = useLanguage();
   const { products, loading, error, fetchProducts } = useProductsStore();
   const featuredProducts = Array.isArray(products) ? products.slice(0, 8) : [];
   const [heroIndex, setHeroIndex] = useState(0);
@@ -56,7 +59,7 @@ export function Home() {
         });
         setOffersByProductId(map);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => { cancelled = true; };
   }, []);
 
@@ -85,7 +88,7 @@ export function Home() {
         if (cancelled || !Array.isArray(data)) return;
         setPromoBanners(data);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => { cancelled = true; };
   }, []);
 
@@ -98,10 +101,10 @@ export function Home() {
         if (categoriesEffectId.current !== id) return;
         const list = Array.isArray(data)
           ? data.map((c: { id?: unknown; name?: unknown; icon?: unknown }) => ({
-              id: String(c?.id ?? ''),
-              name: String(c?.name ?? ''),
-              icon: String(c?.icon ?? 'Wrench'),
-            })).filter((c) => c.id && c.name)
+            id: String(c?.id ?? ''),
+            name: String(c?.name ?? ''),
+            icon: String(c?.icon ?? 'Wrench'),
+          })).filter((c) => c.id && c.name)
           : [];
         setCategories(list);
       })
@@ -197,9 +200,8 @@ export function Home() {
               key={i}
               type="button"
               onClick={() => setHeroIndex(i)}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                i === heroIndex ? 'w-8 bg-white' : 'w-2 bg-white/50 hover:bg-white/70'
-              }`}
+              className={`h-2 rounded-full transition-all duration-300 ${i === heroIndex ? 'w-8 bg-white' : 'w-2 bg-white/50 hover:bg-white/70'
+                }`}
               aria-label={`Ir a imagen ${i + 1}`}
             />
           ))}
@@ -208,17 +210,16 @@ export function Home() {
         {/* Content */}
         <div className="relative z-10 text-center text-white px-4 animate-fadeIn">
           <h1 className="text-4xl md:text-6xl font-medium mb-4 leading-tight">
-            TODO LO QUE NECESITAS PARA TU
+            {t('home.hero_title')}
             <br />
-            <span className="text-[#c8a48c]">CONSTRUCCIÓN</span>
+            <span className="text-[#c8a48c]">{t('home.hero_highlight')}</span>
           </h1>
           <p className="text-lg md:text-xl mb-8 max-w-2xl mx-auto text-gray-200">
-            Materiales de calidad, herramientas profesionales y los mejores precios
-            para hacer realidad tus proyectos.
+            {t('home.hero_desc')}
           </p>
           <Link to="/catalogo">
             <Button className="btn-primary text-lg px-8 py-4">
-              VER PRODUCTOS
+              {t('home.view_products')}
               <ArrowRight className="w-5 h-5 ml-2" />
             </Button>
           </Link>
@@ -267,9 +268,8 @@ export function Home() {
                     key={i}
                     type="button"
                     onClick={() => setPromoIndex(i)}
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      i === promoIndex % promoBanners.length ? 'w-8 bg-[#1e5631]' : 'w-2 bg-gray-300 hover:bg-gray-400'
-                    }`}
+                    className={`h-2 rounded-full transition-all duration-300 ${i === promoIndex % promoBanners.length ? 'w-8 bg-[#1e5631]' : 'w-2 bg-gray-300 hover:bg-gray-400'
+                      }`}
                     aria-label={`Ir a paso ${i + 1}`}
                   />
                 ))}
@@ -283,7 +283,7 @@ export function Home() {
       <section className="py-20 px-[5%] bg-[#f8f0ed]">
         <div className="max-w-[80rem] mx-auto">
           <h2 className="text-3xl md:text-4xl text-center text-[#333] mb-12">
-            Categorías Principales
+            {t('home.main_categories')}
           </h2>
           {categoriesLoading ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -293,7 +293,7 @@ export function Home() {
             </div>
           ) : categories.length === 0 ? (
             <p className="text-center text-[#666] py-8">
-              No hay categorías aún. Añádelas desde el panel de administración.
+              {t('home.no_categories')}
             </p>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
@@ -315,14 +315,17 @@ export function Home() {
         </div>
       </section>
 
+      {/* Services Section */}
+      <ServicesSection />
+
       {/* Featured Products Section */}
       <section className="py-20 px-[5%] bg-white">
         <div className="max-w-[80rem] mx-auto">
           <div className="flex items-center justify-between mb-12">
-            <h2 className="text-3xl md:text-4xl text-[#333]">Productos Destacados</h2>
+            <h2 className="text-3xl md:text-4xl text-[#333]">{t('home.featured_products')}</h2>
             <Link to="/catalogo">
               <Button variant="outline" className="btn-secondary">
-                Ver Todo
+                {t('home.view_all')}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
             </Link>
@@ -337,14 +340,14 @@ export function Home() {
             <div className="text-center py-16 bg-[#f8f0ed] rounded-lg">
               <p className="text-[#333] mb-4">{error}</p>
               <Button onClick={() => fetchProducts()} className="bg-[#946545] hover:bg-[#7a5337] text-white">
-                Reintentar
+                {t('home.retry')}
               </Button>
             </div>
           ) : featuredProducts.length === 0 ? (
             <div className="text-center py-16 bg-[#f8f0ed] rounded-lg text-[#333]">
-              <p>No hay productos destacados en este momento.</p>
+              <p>{t('home.no_featured')}</p>
               <Link to="/catalogo" className="inline-block mt-4">
-                <Button variant="outline" className="btn-secondary">Ver catálogo</Button>
+                <Button variant="outline" className="btn-secondary">{t('home.view_catalog')}</Button>
               </Link>
             </div>
           ) : (

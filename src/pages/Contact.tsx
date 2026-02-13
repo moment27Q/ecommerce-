@@ -3,16 +3,10 @@ import { Phone, Mail, Send, Facebook, Instagram } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-
-const ASUNTO_OPTIONS = [
-  'Selecciona un motivo',
-  'Consulta general',
-  'Pedidos',
-  'Soporte técnico',
-  'Otro',
-];
+import { useLanguage } from '@/context/LanguageContext';
 
 export function Contact() {
+  const { t } = useLanguage();
   const [form, setForm] = useState({
     fullName: '',
     email: '',
@@ -20,19 +14,56 @@ export function Contact() {
     message: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const ASUNTO_OPTIONS = [
+    t('contact.select_subject'),
+    t('contact.subject_general'),
+    t('contact.subject_orders'),
+    t('contact.subject_support'),
+    t('contact.subject_other'),
+  ];
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const lines = [
-      'Hola, quiero más información.',
-      '',
-      form.fullName && `*Nombre:* ${form.fullName}`,
-      form.email && `*Correo:* ${form.email}`,
-      form.subject && `*Asunto:* ${form.subject}`,
-      form.message && `*Mensaje:*\n${form.message}`,
-    ].filter(Boolean);
-    const text = lines.join('\n');
-    const whatsappUrl = `https://wa.me/51941576393?text=${encodeURIComponent(text)}`;
-    window.open(whatsappUrl, '_blank');
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch('/api/contact/sms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(form),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.details || data.error || 'Error al enviar el mensaje');
+      }
+
+      alert(t('contact.success'));
+      setForm({ fullName: '', email: '', subject: '', message: '' });
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      alert(`${t('contact.error')}\n\nError: ` + (error instanceof Error ? error.message : String(error)));
+
+      // Fallback to manual SMS if server fails
+      const lines = [
+        'Hola, quiero más información.',
+        '',
+        form.fullName && `*Nombre:* ${form.fullName}`,
+        form.email && `*Correo:* ${form.email}`,
+        form.subject && `*Asunto:* ${form.subject}`,
+        form.message && `*Mensaje:*\n${form.message}`,
+      ].filter(Boolean);
+      const body = lines.join('\n');
+      const phoneNumber = '+18013472165';
+      const smsUrl = `sms:${phoneNumber}?body=${encodeURIComponent(body)}`;
+      window.location.href = smsUrl;
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -42,13 +73,13 @@ export function Contact() {
           {/* Panel izquierdo - verde oscuro */}
           <div className="bg-[#1e5631] text-white p-10 lg:p-12 flex flex-col justify-between relative overflow-hidden">
             <div className="relative z-10">
-              <h1 className="text-3xl lg:text-4xl font-bold mb-4">Contáctanos</h1>
+              <h1 className="text-3xl lg:text-4xl font-bold mb-4">{t('contact.title')}</h1>
               <p className="text-white/95 text-base lg:text-lg leading-relaxed mb-10">
-                Estamos aquí para ayudarte a construir tus sueños. Ponte en contacto con nuestro equipo de expertos.
+                {t('contact.description')}
               </p>
               <div className="space-y-6">
                 <a
-                  href="tel:941576393"
+                  href="tel:+18013472165"
                   className="flex items-center gap-4 text-white hover:opacity-90 transition-opacity"
                 >
                   <div className="w-12 h-12 rounded-full bg-[#e85d04] flex items-center justify-center shrink-0">
@@ -56,7 +87,7 @@ export function Contact() {
                   </div>
                   <div>
                     <p className="text-xs font-bold uppercase tracking-wider text-white/80">Teléfono</p>
-                    <p className="text-lg font-semibold">941 576 393</p>
+                    <p className="text-lg font-semibold">+1 (801) 347-2165</p>
                   </div>
                 </a>
                 <a
@@ -67,7 +98,7 @@ export function Contact() {
                     <Mail className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <p className="text-xs font-bold uppercase tracking-wider text-white/80">Correo electrónico</p>
+                    <p className="text-xs font-bold uppercase tracking-wider text-white/80">{t('contact.email')}</p>
                     <p className="text-lg font-semibold break-all">josarzc@hotmail.com</p>
                   </div>
                 </a>
@@ -93,19 +124,19 @@ export function Contact() {
 
           {/* Panel derecho - formulario */}
           <div className="bg-white p-10 lg:p-12 flex flex-col justify-center">
-            <h2 className="text-2xl font-bold text-[#333] mb-2">Envíanos un mensaje</h2>
+            <h2 className="text-2xl font-bold text-[#333] mb-2">{t('contact.form_title')}</h2>
             <p className="text-gray-500 text-sm mb-8">
-              Nuestro equipo responderá en menos de 24 horas hábiles.
+              {t('contact.form_desc')}
             </p>
             <form onSubmit={handleSubmit} className="space-y-5">
               <div>
                 <Label htmlFor="fullName" className="text-[#333] font-medium">
-                  Nombre completo
+                  {t('contact.name')}
                 </Label>
                 <Input
                   id="fullName"
                   type="text"
-                  placeholder="Ej. Juan Pérez"
+                  placeholder={t('contact.name_placeholder')}
                   value={form.fullName}
                   onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
                   className="mt-1.5 border-gray-200"
@@ -113,7 +144,7 @@ export function Contact() {
               </div>
               <div>
                 <Label htmlFor="email" className="text-[#333] font-medium">
-                  Correo electrónico
+                  {t('contact.email')}
                 </Label>
                 <Input
                   id="email"
@@ -126,7 +157,7 @@ export function Contact() {
               </div>
               <div>
                 <Label htmlFor="subject" className="text-[#333] font-medium">
-                  Asunto
+                  {t('contact.subject')}
                 </Label>
                 <select
                   id="subject"
@@ -135,7 +166,7 @@ export function Contact() {
                   className="mt-1.5 w-full h-10 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-[#333] focus:outline-none focus:ring-2 focus:ring-[#1e5631] focus:border-[#1e5631]"
                 >
                   {ASUNTO_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt === 'Selecciona un motivo' ? '' : opt}>
+                    <option key={opt} value={opt === t('contact.select_subject') ? '' : opt}>
                       {opt}
                     </option>
                   ))}
@@ -143,12 +174,12 @@ export function Contact() {
               </div>
               <div>
                 <Label htmlFor="message" className="text-[#333] font-medium">
-                  Mensaje
+                  {t('contact.message')}
                 </Label>
                 <textarea
                   id="message"
                   rows={4}
-                  placeholder="Cuéntanos en qué podemos ayudarte..."
+                  placeholder={t('contact.message_placeholder')}
                   value={form.message}
                   onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
                   className="mt-1.5 w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm text-[#333] placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1e5631] focus:border-[#1e5631] resize-none"
@@ -156,10 +187,11 @@ export function Contact() {
               </div>
               <Button
                 type="submit"
-                className="w-full bg-[#e85d04] hover:bg-[#d35400] text-white font-semibold py-3 text-base"
+                disabled={isSubmitting}
+                className="w-full bg-[#e85d04] hover:bg-[#d35400] text-white font-semibold py-3 text-base disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                Enviar mensaje
-                <Send className="w-5 h-5 ml-2" />
+                {isSubmitting ? t('contact.sending') : t('contact.send')}
+                {!isSubmitting && <Send className="w-5 h-5 ml-2" />}
               </Button>
             </form>
           </div>

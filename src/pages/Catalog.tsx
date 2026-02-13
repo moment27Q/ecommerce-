@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
+import { useLanguage } from '@/context/LanguageContext';
 import { Search } from 'lucide-react';
 import { ProductCard } from '@/components/product/ProductCard';
 import { useProductsStore } from '@/store/productsStore';
@@ -19,6 +20,7 @@ type CategoryFromApi = { id: string; name: string; icon: string; sortOrder: numb
 type FilterGroupFromApi = { id: string; name: string; key: string; sortOrder: number };
 
 export function Catalog() {
+  const { t } = useLanguage();
   const { products, loading, error, fetchProducts } = useProductsStore();
   const [searchParams, setSearchParams] = useSearchParams();
   const [offersByProductId, setOffersByProductId] = useState<Record<string, CatalogOffer>>({});
@@ -37,7 +39,7 @@ export function Catalog() {
         if (cancelled || !Array.isArray(data)) return;
         setCategories(data);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => { cancelled = true; };
   }, []);
 
@@ -49,7 +51,7 @@ export function Catalog() {
         if (cancelled || !Array.isArray(data)) return;
         setFilterGroups(data);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => { cancelled = true; };
   }, []);
 
@@ -72,7 +74,7 @@ export function Catalog() {
         });
         setOffersByProductId(map);
       })
-      .catch(() => {});
+      .catch(() => { });
     return () => { cancelled = true; };
   }, []);
 
@@ -130,7 +132,7 @@ export function Catalog() {
   const totalFiltered = filteredProducts.length;
   const from = totalFiltered === 0 ? 0 : 1;
   const to = totalFiltered;
-  const showingText = `Mostrando ${from}-${to} de ${totalFiltered} productos`;
+  const showingText = `${t('catalog.showing')} ${from}-${to} ${t('catalog.of')} ${totalFiltered} ${t('catalog.products')}`;
 
   return (
     <div className="min-h-screen bg-white pt-[8.75rem]">
@@ -139,22 +141,22 @@ export function Catalog() {
         <div className="bg-[#1e5631] rounded-xl py-10 px-6 md:py-12 md:px-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div>
             <span className="inline-block bg-[#e85d04] text-white text-xs font-bold uppercase tracking-wide px-3 py-1.5 rounded-md mb-4">
-              OFERTA LIMITADA
+              {t('catalog.hero_tag')}
             </span>
             <h1 className="text-2xl md:text-4xl font-bold text-white mb-2">
-              Oferta de equipo pesado
+              {t('catalog.hero_title')}
             </h1>
             <p className="text-white text-sm md:text-base max-w-xl">
-              Ahorra hasta 25% en mezcladoras de cemento y herramientas de pavimentación profesionales solo este fin de semana.
+              {t('catalog.hero_desc')}
             </p>
-            <p className="text-white/90 text-xs italic mt-2">*Válido mientras haya stock</p>
+            <p className="text-white/90 text-xs italic mt-2">{t('catalog.hero_disclaimer')}</p>
           </div>
           <div className="flex-shrink-0">
             <Button
               asChild
               className="bg-[#333] hover:bg-[#444] text-white font-bold uppercase text-sm tracking-widest px-6 py-3 rounded-lg"
             >
-              <Link to="/equipo-pesado">VER EQUIPO</Link>
+              <Link to="/equipo-pesado">{t('catalog.view_equipment')}</Link>
             </Button>
           </div>
         </div>
@@ -168,13 +170,13 @@ export function Catalog() {
             <div className="bg-[#f8f8f8] space-y-8">
               <div>
                 <h3 className="font-bold text-[#333] text-sm uppercase tracking-wide mb-3">
-                  SEARCH PRODUCTS
+                  {t('catalog.search_title')}
                 </h3>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <Input
                     type="text"
-                    placeholder="Cemento, palas..."
+                    placeholder={t('catalog.search_placeholder')}
                     value={searchQuery}
                     onChange={(e) => {
                       setSearchQuery(e.target.value);
@@ -188,7 +190,7 @@ export function Catalog() {
 
               <div>
                 <h3 className="font-bold text-[#333] text-sm uppercase tracking-wide mb-4">
-                  CATEGORÍAS
+                  {t('catalog.categories_title')}
                 </h3>
                 <div className="space-y-3">
                   {sidebarCategories.map((cat) => (
@@ -209,7 +211,7 @@ export function Catalog() {
 
               <div>
                 <h3 className="font-bold text-[#333] text-sm uppercase tracking-wide mb-4">
-                  RANGO DE PRECIO
+                  {t('catalog.price_range')}
                 </h3>
                 <Slider
                   value={priceRange}
@@ -231,16 +233,16 @@ export function Catalog() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <p className="text-sm text-[#333]">{showingText}</p>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-normal text-[#333]">ORDENAR POR</span>
+                <span className="text-sm font-normal text-[#333]">{t('catalog.sort_by')}</span>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
                   className="bg-white border border-gray-200 rounded-lg px-4 py-2 text-sm font-bold text-[#333] focus:outline-none focus:ring-2 focus:ring-[#1e5631]"
                 >
-                  <option value="newest">Más recientes</option>
-                  <option value="price-asc">Precio: menor a mayor</option>
-                  <option value="price-desc">Precio: mayor a menor</option>
-                  <option value="name">Nombre</option>
+                  <option value="newest">{t('catalog.sort_newest')}</option>
+                  <option value="price-asc">{t('catalog.sort_price_asc')}</option>
+                  <option value="price-desc">{t('catalog.sort_price_desc')}</option>
+                  <option value="name">{t('catalog.sort_name')}</option>
                 </select>
               </div>
             </div>
@@ -255,14 +257,14 @@ export function Catalog() {
               <div className="text-center py-16 bg-white rounded-lg border border-gray-200">
                 <p className="text-[#333] mb-4">{error}</p>
                 <Button onClick={() => fetchProducts()} className="bg-[#1e5631] hover:bg-[#164a28] text-white">
-                  Reintentar
+                  {t('home.retry')}
                 </Button>
               </div>
             ) : filteredProducts.length === 0 ? (
               <div className="text-center py-16 bg-white rounded-lg">
                 <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-[#333] mb-2">No se encontraron productos</h3>
-                <p className="text-gray-500 mb-4">Prueba ajustando la búsqueda o los filtros.</p>
+                <h3 className="text-xl font-bold text-[#333] mb-2">{t('catalog.no_results_title')}</h3>
+                <p className="text-gray-500 mb-4">{t('catalog.no_results_desc')}</p>
                 <Button
                   onClick={() => {
                     setSearchQuery('');
@@ -273,7 +275,7 @@ export function Catalog() {
                   }}
                   className="bg-[#1e5631] hover:bg-[#164a28] text-white"
                 >
-                  Limpiar filtros
+                  {t('catalog.clear_filters')}
                 </Button>
               </div>
             ) : (
