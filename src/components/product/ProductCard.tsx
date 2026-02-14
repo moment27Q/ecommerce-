@@ -49,7 +49,7 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, offer }: ProductCardProps) {
-  const { addToCart, items } = useCartStore();
+  const { addToCart } = useCartStore();
   const { t } = useLanguage();
   const [showAddedMessage, setShowAddedMessage] = useState(false);
   const [countdown, setCountdown] = useState<string | null>(offer?.validUntil ? formatCountdown(offer.validUntil) : null);
@@ -62,7 +62,6 @@ export function ProductCard({ product, offer }: ProductCardProps) {
     return () => clearInterval(id);
   }, [offer?.validUntil]);
 
-  const isInCart = items.some((item) => item.product.id === product.id);
   const hasOffer = offer != null;
   const showSaleBadge = hasOffer || product.tag === 'SALE' || product.originalPrice != null;
   const rating = product.rating ?? 4.5;
@@ -198,7 +197,7 @@ export function ProductCard({ product, offer }: ProductCardProps) {
           ) : (
             <>
               <ShoppingCart className="w-4 h-4 mr-2" />
-              {isInCart ? t('product.add_more') : t('product.add_to_cart')}
+              {t('product.add_to_cart')}
             </>
           )}
         </Button>
