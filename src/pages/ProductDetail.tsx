@@ -6,27 +6,25 @@ import { useCartStore } from '@/store/cartStore';
 import { useProductsStore } from '@/store/productsStore';
 import { Button } from '@/components/ui/button';
 import { API } from '@/lib/api';
+import { useLanguage } from '@/context/LanguageContext';
 
-interface ProductOffer {
-  validUntil: string | null;
-  discountPercent: number;
-}
 
-function formatCountdown(validUntil: string): string {
+
+function formatCountdown(validUntil: string, t: (key: string) => string): string {
   const end = new Date(validUntil);
   const now = new Date();
-  if (end.getTime() <= now.getTime()) return 'Oferta terminada';
+  if (end.getTime() <= now.getTime()) return t('product.offer_ended');
   const ms = end.getTime() - now.getTime();
   const days = Math.floor(ms / (24 * 60 * 60 * 1000));
   const hours = Math.floor((ms % (24 * 60 * 60 * 1000)) / (60 * 60 * 1000));
-  if (days > 0) return `Termina en ${days} d ${hours} h`;
-  if (hours > 0) return `Termina en ${hours} h`;
+  if (days > 0) return `${t('product.ends_in')} ${days} ${t('product.days_short')} ${hours} ${t('product.hours_short')}`;
+  if (hours > 0) return `${t('product.ends_in')} ${hours} ${t('product.hours_short')}`;
   const mins = Math.floor((ms % (60 * 60 * 1000)) / (60 * 1000));
-  return `Termina en ${mins} min`;
+  return `${t('product.ends_in')} ${mins} ${t('product.minutes_short')}`;
 }
 
-function formatEndDate(validUntil: string): string {
-  return new Date(validUntil).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+function formatEndDate(validUntil: string, language: string): string {
+  return new Date(validUntil).toLocaleDateString(language === 'es' ? 'es-PE' : 'en-US', { day: '2-digit', month: '2-digit', year: 'numeric' });
 }
 
 const TAG_STYLES: Record<ProductTag, string> = {
@@ -36,14 +34,11 @@ const TAG_STYLES: Record<ProductTag, string> = {
   'BULK PRICING': 'bg-[#2d9d5f] text-white',
 };
 
-const TAG_LABELS_ES: Record<ProductTag, string> = {
-  'IN STOCK': 'EN STOCK',
-  SALE: 'OFERTA',
-  TOOLS: 'HERRAMIENTAS',
-  'BULK PRICING': 'PRECIO POR MAYOR',
-};
+// TAG_LABELS_ES removed, will use t()
+
 
 export function ProductDetail() {
+  const { t, language } = useLanguage();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { addToCart, items } = useCartStore();
@@ -59,7 +54,7 @@ export function ProductDetail() {
   useEffect(() => {
     if (!id) {
       setLoading(false);
-      setError('ID no válido');
+      setError('invalid_id');
       setProduct(null);
       return;
     }
@@ -77,7 +72,7 @@ export function ProductDetail() {
       .then((res) => {
         if (!res.ok) {
           if (res.status === 404) throw new Error('not_found');
-          throw new Error('Error del servidor');
+          throw new Error('server_error');
         }
         return res.json();
       })
@@ -91,7 +86,7 @@ export function ProductDetail() {
           const msg = e instanceof Error ? e.message : '';
           if (msg === 'not_found') setError('not_found');
           else if (msg.includes('fetch') || msg.includes('Network')) setError('network');
-          else setError(msg || 'Error al cargar');
+          else setError(msg || 'unknown_error');
         }
       })
       .finally(() => {
@@ -117,7 +112,7 @@ export function ProductDetail() {
 
   useEffect(() => {
     if (!offer?.validUntil) return;
-    const tick = () => setCountdown(formatCountdown(offer.validUntil!));
+    const tick = () => setCountdown(formatCountdown(offer.validUntil!, t));
     tick();
     const id = setInterval(tick, 60 * 1000);
     return () => clearInterval(id);
@@ -177,13 +172,13 @@ export function ProductDetail() {
     const isNotFound = error === 'not_found';
     const isNetwork = error === 'network';
     const title = isNetwork
-      ? 'No se pudo conectar'
-      : 'Producto no encontrado';
+      ? t('product.connection_error_title')
+      : t('product.not_found_title');
     const description = isNetwork
-      ? 'El servidor no responde. Asegúrate de tener el backend en marcha (npm run server) y de haber cargado los productos (npm run server:seed si la base está vacía).'
+      ? t('product.connection_error_desc')
       : isNotFound
-        ? 'El producto no existe o fue eliminado.'
-        : error ?? 'Algo salió mal.';
+        ? t('product.not_found_desc')
+        : t(error ?? 'product.unknown_error');
     return (
       <div className="min-h-screen bg-[#f8f8f8] pt-[8.75rem] pb-12 flex items-center justify-center">
         <div className="text-center px-4 max-w-md">
@@ -192,7 +187,7 @@ export function ProductDetail() {
           <Link to="/catalogo">
             <Button className="bg-[#1e5631] hover:bg-[#164a28] text-white">
               <ArrowLeft className="w-4 h-4 mr-2" />
-              Volver al catálogo
+              {t('product.back_to_catalog')}
             </Button>
           </Link>
         </div>
@@ -208,7 +203,7 @@ export function ProductDetail() {
           className="inline-flex items-center text-sm text-[#1e5631] hover:underline mb-6"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Volver al catálogo
+          {t('product.back_to_catalog')}
         </Link>
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col md:flex-row">
@@ -218,7 +213,7 @@ export function ProductDetail() {
               {outOfStock ? (
                 <img
                   src="/out-of-stock.png"
-                  alt="Próximamente"
+                  alt={t('product.add_more').replace('Añadir más', 'Próximamente')} // Hack or just use t('product.coming_soon')
                   className="w-full h-full object-contain p-4"
                 />
               ) : (
@@ -230,7 +225,7 @@ export function ProductDetail() {
               )}
               {!outOfStock && hasOffer && (
                 <span className="absolute top-3 left-3 bg-[#e85d04] text-white text-xs font-bold uppercase px-2 py-1 rounded">
-                  OFERTA
+                  {t('product.tag_sale')}
                 </span>
               )}
             </div>
@@ -246,7 +241,10 @@ export function ProductDetail() {
               )}
               {product.tag && (
                 <span className={`text-xs font-bold uppercase px-2 py-1 rounded ${TAG_STYLES[product.tag]}`}>
-                  {TAG_LABELS_ES[product.tag]}
+                  {product.tag === 'IN STOCK' ? t('product.tag_in_stock') :
+                    product.tag === 'SALE' ? t('product.tag_sale') :
+                      product.tag === 'TOOLS' ? t('product.tag_tools') :
+                        product.tag === 'BULK PRICING' ? t('product.tag_bulk') : product.tag}
                 </span>
               )}
               <span className="text-sm text-gray-500">{product.category}</span>
@@ -259,7 +257,7 @@ export function ProductDetail() {
               <span className="font-medium">{rating}</span>
             </div>
             <p className="text-gray-600 mb-6 leading-relaxed">
-              {product.description || 'Sin descripción.'}
+              {product.description || t('product.no_description')}
             </p>
 
             <div className="flex flex-wrap items-baseline gap-2 mb-4">
@@ -277,25 +275,25 @@ export function ProductDetail() {
               <div className="text-sm text-[#666] mb-4">
                 {offer.validUntil ? (
                   <>
-                    <span className="font-medium text-[#333]">{countdown ?? formatCountdown(offer.validUntil)}</span>
-                    <span className="ml-1">(válida hasta {formatEndDate(offer.validUntil)})</span>
+                    <span className="font-medium text-[#333]">{countdown ?? formatCountdown(offer.validUntil, t)}</span>
+                    <span className="ml-1">({t('product.valid_until')} {formatEndDate(offer.validUntil, language)})</span>
                   </>
                 ) : (
-                  <span className="font-medium text-[#333]">Oferta activa</span>
+                  <span className="font-medium text-[#333]">{t('product.offer_active')}</span>
                 )}
               </div>
             )}
             <p className="text-sm text-gray-500 mb-6">
               {outOfStock ? (
-                <span className="inline-block px-3 py-1.5 bg-red-100 text-red-800 font-medium rounded">Agotado - Próximamente</span>
+                <span className="inline-block px-3 py-1.5 bg-red-100 text-red-800 font-medium rounded">{t('product.out_of_stock_msg')}</span>
               ) : (
-                <>Stock disponible: <span className="font-medium text-[#333]">{product.stock}</span> unidades</>
+                <>{t('product.stock_available')} <span className="font-medium text-[#333]">{product.stock}</span> {t('product.units')}</>
               )}
             </p>
 
             {/* Cantidad */}
             <div className="flex items-center gap-4 mb-6">
-              <span className="text-sm font-medium text-[#333]">Cantidad:</span>
+              <span className="text-sm font-medium text-[#333]">{t('product.quantity')}</span>
               <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
                 <button
                   type="button"
@@ -324,25 +322,24 @@ export function ProductDetail() {
               <Button
                 onClick={handleAddToCart}
                 disabled={showAddedMessage || product.stock < 1}
-                className={`flex-1 min-w-[140px] ${
-                  outOfStock
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : showAddedMessage
-                      ? 'bg-[#2d9d5f] hover:bg-[#2d9d5f]'
-                      : 'bg-[#333] hover:bg-[#444]'
-                } text-white font-bold uppercase disabled:opacity-80`}
+                className={`flex-1 min-w-[140px] ${outOfStock
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : showAddedMessage
+                    ? 'bg-[#2d9d5f] hover:bg-[#2d9d5f]'
+                    : 'bg-[#333] hover:bg-[#444]'
+                  } text-white font-bold uppercase disabled:opacity-80`}
               >
                 {outOfStock ? (
-                  'Próximamente'
+                  t('product.coming_soon') // Reuse coming soon or add distinct
                 ) : showAddedMessage ? (
                   <>
                     <Check className="w-4 h-4 mr-2" />
-                    Añadido al carrito
+                    {t('product.added_to_cart')}
                   </>
                 ) : (
                   <>
                     <ShoppingCart className="w-4 h-4 mr-2" />
-                    {isInCart ? 'Añadir más' : 'Añadir al carrito'}
+                    {isInCart ? t('product.add_more') : t('product.add_to_cart_btn')}
                   </>
                 )}
               </Button>
@@ -351,7 +348,7 @@ export function ProductDetail() {
                 disabled={product.stock < 1}
                 className="flex-1 min-w-[140px] bg-[#1e5631] hover:bg-[#164a28] text-white font-bold disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {outOfStock ? 'Próximamente' : 'Comprar ahora'}
+                {outOfStock ? t('product.coming_soon') : t('product.buy_now')}
               </Button>
             </div>
           </div>

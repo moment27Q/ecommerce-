@@ -218,6 +218,36 @@ const translations: Translations = {
     'cart.checkout': { es: 'Continuar Compra', en: 'Checkout' },
     'cart.continue_shopping': { es: 'Seguir Comprando', en: 'Continue Shopping' },
 
+    // Product Detail
+    'product.back_to_catalog': { es: 'Volver al catálogo', en: 'Back to catalog' },
+    'product.offer_ended': { es: 'Oferta terminada', en: 'Offer ended' },
+    'product.ends_in': { es: 'Termina en', en: 'Ends in' },
+    'product.days_short': { es: 'd', en: 'd' },
+    'product.hours_short': { es: 'h', en: 'h' },
+    'product.minutes_short': { es: 'min', en: 'min' },
+    'product.invalid_id': { es: 'ID no válido', en: 'Invalid ID' },
+    'product.server_error': { es: 'Error del servidor', en: 'Server error' },
+    'product.connection_error_title': { es: 'No se pudo conectar', en: 'Connection failed' },
+    'product.connection_error_desc': { es: 'El servidor no responde. Asegúrate de tener el backend en marcha.', en: 'Server not responding. Ensure backend is running.' },
+    'product.not_found_title': { es: 'Producto no encontrado', en: 'Product not found' },
+    'product.not_found_desc': { es: 'El producto no existe o fue eliminado.', en: 'Product does not exist or was deleted.' },
+    'product.unknown_error': { es: 'Algo salió mal.', en: 'Something went wrong.' },
+    'product.no_description': { es: 'Sin descripción.', en: 'No description.' },
+    'product.valid_until': { es: 'válida hasta', en: 'valid until' },
+    'product.offer_active': { es: 'Oferta activa', en: 'Offer active' },
+    'product.out_of_stock_msg': { es: 'Agotado - Próximamente', en: 'Out of Stock - Coming Soon' },
+    'product.stock_available': { es: 'Stock disponible:', en: 'Stock available:' },
+    'product.units': { es: 'unidades', en: 'units' },
+    'product.quantity': { es: 'Cantidad:', en: 'Quantity:' },
+    'product.added_to_cart': { es: 'Añadido al carrito', en: 'Added to cart' },
+
+    'product.add_to_cart_btn': { es: 'Añadir al carrito', en: 'Add to Cart' },
+    'product.buy_now': { es: 'Comprar ahora', en: 'Buy Now' },
+    'product.tag_in_stock': { es: 'EN STOCK', en: 'IN STOCK' },
+    'product.tag_sale': { es: 'OFERTA', en: 'SALE' },
+    'product.tag_tools': { es: 'HERRAMIENTAS', en: 'TOOLS' },
+    'product.tag_bulk': { es: 'PRECIO POR MAYOR', en: 'BULK PRICING' },
+
 };
 
 type LanguageContextType = {

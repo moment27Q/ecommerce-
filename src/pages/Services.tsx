@@ -48,15 +48,9 @@ export function Services() {
             });
     }, []);
 
-    const filters = [
-        { label: t('services.filter_all'), value: 'all' },
-        { label: t('services.filter_residential'), value: 'Residencial' },
-        { label: t('services.filter_commercial'), value: 'Comercial' },
-        { label: t('services.filter_machinery'), value: 'Maquinaria' },
-    ];
-
-    // Placeholder services while loading or if empty?
-    // Or just show loading state.
+    // Extract unique categories from fetched services
+    const uniqueCategories = Array.from(new Set(services.map(s => s.category)));
+    const filters = ['all', ...uniqueCategories];
 
     // We can assume the first service or a specific one is featured, or just the first one.
     const featuredService = services.length > 0 ? services[0] : null;
@@ -97,14 +91,14 @@ export function Services() {
                     <div className="flex flex-wrap justify-center gap-4">
                         {filters.map((filter) => (
                             <button
-                                key={filter.value}
-                                onClick={() => setActiveFilter(filter.value)}
-                                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 border ${activeFilter === filter.value
+                                key={filter}
+                                onClick={() => setActiveFilter(filter)}
+                                className={`px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 border ${activeFilter === filter
                                     ? 'bg-[#1e5631] text-white border-[#1e5631]'
                                     : 'bg-white text-gray-600 border-gray-200 hover:border-[#1e5631] hover:text-[#1e5631]'
                                     }`}
                             >
-                                {filter.label}
+                                {filter === 'all' ? t('services.filter_all') : filter}
                             </button>
                         ))}
                     </div>

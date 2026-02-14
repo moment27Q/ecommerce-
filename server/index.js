@@ -505,6 +505,7 @@ app.put('/api/offers/:id', authMiddleware, (req, res) => {
 });
 
 app.delete('/api/offers/:id', authMiddleware, (req, res) => {
+  const result = db.prepare('DELETE FROM offers WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Oferta no encontrada' });
   res.status(204).send();
 });

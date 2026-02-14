@@ -120,7 +120,9 @@ export function Contact() {
             </div>
             <div className="flex gap-3 mt-8 relative z-10">
               <a
-                href="#"
+                href="https://www.facebook.com/share/14Wq4uekiZY/?mibextid=wwXIfr"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white hover:bg-white/30 transition-colors"
                 aria-label="Facebook"
               >
