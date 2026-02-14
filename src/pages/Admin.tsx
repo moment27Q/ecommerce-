@@ -29,7 +29,6 @@ import {
   Filter,
 
   Languages,
-  PenTool,
   BookOpen,
 } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
@@ -37,6 +36,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useProductsStore, type ProductFormData } from '@/store/productsStore';
 import { useAuthStore } from '@/store/authStore';
 import { fetchWithAuth, API } from '@/lib/api';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -216,6 +216,7 @@ export function Admin() {
   const [serviceSaving, setServiceSaving] = useState(false);
   const [serviceError, setServiceError] = useState<string | null>(null);
   const [serviceToDelete, setServiceToDelete] = useState<ServiceItem | null>(null);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
 
   const loadOrders = useCallback(async () => {
     setOrdersLoading(true);
@@ -238,8 +239,19 @@ export function Admin() {
 
   const updateOrderStatusInApi = useCallback(
     async (orderId: string, status: Order['status']) => {
+      // Confirmaciones para acciones sensibles
+      if (status === 'delivered') {
+        const ok = window.confirm('¿Marcar como entregado?');
+        if (!ok) return;
+      }
+      if (status === 'cancelled') {
+        const ok = window.confirm('¿Cancelar este pedido?');
+        if (!ok) return;
+      }
       try {
-        const res = await fetchWithAuth(`${API}/orders/${orderId}`, {
+        setStatusUpdatingId(orderId);
+        // El backend expone PATCH /api/orders/:id/status
+        const res = await fetchWithAuth(`${API}/orders/${orderId}/status`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ status }),
@@ -251,9 +263,13 @@ export function Admin() {
         }
         if (!res.ok) throw new Error('Error al actualizar estado');
         await loadOrders();
+        toast.success('Estado actualizado');
       } catch {
+        toast.error('No se pudo actualizar el estado');
         // fallback: recargar lista por si el backend sí actualizó
         await loadOrders();
+      } finally {
+        setStatusUpdatingId(null);
       }
     },
     [loadOrders, logout, navigate]
@@ -533,7 +549,19 @@ export function Admin() {
 
   const getPaymentMethodLabel = (method: Order['paymentMethod']) => {
     const labels = { yape: 'Yape', plin: 'Plin', card: 'Tarjeta', transfer: 'Transferencia' };
-    return labels[method];
+    const colors = {
+      yape: 'bg-purple-100 text-purple-800 border-purple-200',
+      plin: 'bg-blue-100 text-blue-800 border-blue-200',
+      card: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+      transfer: 'bg-gray-100 text-gray-800 border-gray-200',
+    } as const;
+    const Icon = method === 'card' ? CreditCard : method === 'transfer' ? Truck : Percent;
+    return (
+      <Badge variant="outline" className={`${colors[method]} inline-flex items-center gap-1`}>
+        <Icon className="w-3 h-3" />
+        {labels[method]}
+      </Badge>
+    );
   };
 
   const now = Date.now();
@@ -1609,45 +1637,29 @@ export function Admin() {
                               })}
                             </td>
                             <td className="px-6 py-4">
-                              <div className="flex gap-2">
+                              <div className="flex items-center gap-3">
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={() => setSelectedOrder(order)}
                                   className="border-[#1e5631] text-[#1e5631] hover:bg-[#1e5631] hover:text-white"
+                                  title="Ver detalle del pedido"
                                 >
                                   <Eye className="w-4 h-4" />
                                 </Button>
-                                {order.status === 'pending' && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => updateOrderStatusInApi(order.id, 'paid')}
-                                    className="border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-white"
-                                  >
-                                    <CheckCircle className="w-4 h-4" />
-                                  </Button>
-                                )}
-                                {order.status === 'paid' && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => updateOrderStatusInApi(order.id, 'shipped')}
-                                    className="border-purple-500 text-purple-500 hover:bg-purple-500 hover:text-white"
-                                  >
-                                    <Truck className="w-4 h-4" />
-                                  </Button>
-                                )}
-                                {order.status === 'shipped' && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => updateOrderStatusInApi(order.id, 'delivered')}
-                                    className="border-green-500 text-green-500 hover:bg-green-500 hover:text-white"
-                                  >
-                                    <HomeIcon className="w-4 h-4" />
-                                  </Button>
-                                )}
+                                <select
+                                  className="text-sm border border-gray-300 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-[#1e5631] bg-white"
+                                  value={order.status}
+                                  onChange={(e) => updateOrderStatusInApi(order.id, e.target.value as Order['status'])}
+                                  disabled={statusUpdatingId === order.id}
+                                  title="Actualizar estado"
+                                >
+                                  <option value="pending">Pendiente</option>
+                                  <option value="paid">Pagado</option>
+                                  <option value="shipped">Enviado</option>
+                                  <option value="delivered">Entregado</option>
+                                  <option value="cancelled">Cancelado</option>
+                                </select>
                               </div>
                             </td>
                           </tr>

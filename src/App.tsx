@@ -15,10 +15,11 @@ import { Ofertas } from '@/pages/Ofertas';
 import { EquipoPesado } from '@/pages/EquipoPesado';
 import { Services } from '@/pages/Services';
 import './App.css';
+import { Toaster } from 'sonner';
 
 function AppContent() {
   const location = useLocation();
-  const hideFooter = location.pathname === '/admin';
+  const hideFooter = location.pathname === '/jozarzc';
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -39,10 +40,11 @@ function AppContent() {
           <Route path="/contact" element={<Contact />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+          <Route path="/jozarzc" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
         </Routes>
       </main>
       {!hideFooter && <Footer />}
+      <Toaster position="top-right" richColors closeButton />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ShoppingCart,
@@ -19,18 +19,20 @@ import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-
 
 const stripePromise = loadStripe('pk_test_51T0bG9B7JC0XRRBAnsPhW00XkgbpMyTzAUrAgClrrM0MPZFL3bz6AbLfSQy0ka9AYT0SUcuhArw4Yb80RzsfzKUT00tkCxWbK9');
 
-type PaymentMethod = 'card' | 'yape' | 'plin' | 'other';
-
 function PaymentForm({
   formData,
   total,
   items,
-  onSuccess
+  onSuccess,
+  canSubmit,
+  disabledReason
 }: {
   formData: any,
   total: number,
   items: any[],
-  onSuccess: (orderId: string) => void
+  onSuccess: (orderId: string) => void,
+  canSubmit: boolean,
+  disabledReason?: string
 }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -41,6 +43,10 @@ function PaymentForm({
     e.preventDefault();
 
     if (!stripe || !elements) return;
+    if (!canSubmit) {
+      setMessage(disabledReason || 'Completa los datos requeridos');
+      return;
+    }
 
     setIsLoading(true);
 
@@ -93,10 +99,15 @@ function PaymentForm({
   return (
     <form onSubmit={handleSubmit}>
       <PaymentElement />
+      {disabledReason && canSubmit === false && (
+        <div className="text-yellow-700 bg-yellow-50 border border-yellow-200 text-sm rounded-md px-3 py-2 mt-3">
+          {disabledReason}
+        </div>
+      )}
       {message && <div className="text-red-500 text-sm mt-2">{message}</div>}
       <Button
         type="submit"
-        disabled={isLoading || !stripe || !elements}
+        disabled={isLoading || !stripe || !elements || !canSubmit}
         className="w-full bg-[#1e5631] hover:bg-[#164a28] text-white font-bold h-12 flex items-center justify-center gap-2 mt-4"
       >
         {isLoading ? (
@@ -119,7 +130,6 @@ export function Checkout() {
   const navigate = useNavigate();
   const { items, getTotalPrice, clearCart, addOrder, updateQuantity, removeFromCart } =
     useCartStore();
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
   const [clientSecret, setClientSecret] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [formData, setFormData] = useState({
@@ -128,16 +138,33 @@ export function Checkout() {
     phone: '',
     address: '',
   });
+  const [formError, setFormError] = useState<string | null>(null);
 
   const subtotal = getTotalPrice();
   const shipping = subtotal > 500 ? 0 : 25;
   const taxEstimated = Math.round(subtotal * 0.08 * 100) / 100;
   const total = subtotal + shipping + taxEstimated;
 
-  // Cargar PaymentIntent cuando se seleccione tarjeta y haya datos válidos
+  const isFormValid = useMemo(() => {
+    const nameOk = formData.fullName.trim().length >= 3;
+    const phoneOk = /^[0-9+()\s-]{7,}$/.test(formData.phone.trim());
+    const addressOk = formData.address.trim().length >= 6;
+    const emailOk = !formData.email || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(formData.email.trim());
+    return nameOk && phoneOk && addressOk && emailOk;
+  }, [formData]);
+
   useEffect(() => {
-    if (items.length > 0 && paymentMethod === 'card') {
-      // Reset clientSecret if items change to force re-initialization with correct amount
+    if (!isFormValid) {
+      setFormError('Completa los datos de envío (nombre, teléfono, dirección).');
+    } else {
+      setFormError(null);
+    }
+  }, [isFormValid]);
+
+  // Cargar PaymentIntent cuando hay items y el formulario es válido
+  useEffect(() => {
+    if (items.length > 0 && isFormValid) {
+      // Reset clientSecret if items o datos de cliente cambian
       setClientSecret('');
       
       fetch('/api/create-payment-intent', {
@@ -158,41 +185,12 @@ export function Checkout() {
         })
         .catch((err) => {
             console.error('Error fetching payment intent:', err);
-            // Optional: Set an error state to display to user
+            setFormError('No se pudo iniciar la pasarela de pago. Intenta nuevamente.');
         });
+    } else {
+      setClientSecret('');
     }
-  }, [items, paymentMethod]); // Re-run when items or method changes
-
-  const handleManualSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // Lógica para otros métodos de pago (Yape, Plin, Transferencia) - SIMULADO/MANUAL
-    const orderId = `ORD-${Date.now()}`;
-    const orderPayload = {
-      id: orderId,
-      customer: {
-        name: formData.fullName,
-        phone: formData.phone,
-        address: formData.address,
-        notes: formData.email ? `Email: ${formData.email}` : undefined,
-      },
-      items: [...items],
-      total,
-      paymentMethod: paymentMethod === 'other' ? 'transfer' : paymentMethod,
-    };
-
-    try {
-      const res = await fetch('/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderPayload),
-      });
-      if (!res.ok) throw new Error('Error al registrar el pedido');
-      handleSuccess(orderId);
-    } catch (err) {
-      console.error(err);
-      alert('Error registrando pedido manual');
-    }
-  };
+  }, [items, isFormValid, formData.fullName, formData.email]);
 
   const handleSuccess = (orderId: string) => {
     // Add simplified order to store state for UI feedback if needed
@@ -201,7 +199,7 @@ export function Checkout() {
       customer: { name: formData.fullName, phone: formData.phone, address: formData.address },
       items: [...items],
       total,
-      paymentMethod: paymentMethod === 'card' ? 'card' : (paymentMethod === 'other' ? 'transfer' : paymentMethod),
+      paymentMethod: 'card',
       status: 'pending', // or 'paid' if card
       createdAt: new Date(),
     } as Order);
@@ -235,13 +233,6 @@ export function Checkout() {
       </div>
     );
   }
-
-  const paymentTiles: { id: PaymentMethod; label: string; icon: React.ReactNode }[] = [
-    { id: 'card', label: 'CARD', icon: <CreditCard className="w-6 h-6" /> },
-    { id: 'yape', label: 'YAPE', icon: <span className="w-8 h-8 rounded-full bg-purple-500 text-white font-bold flex items-center justify-center text-sm">Y</span> },
-    { id: 'plin', label: 'PLIN', icon: <span className="w-8 h-8 rounded-full bg-blue-400 text-white font-bold flex items-center justify-center text-sm">P</span> },
-    { id: 'other', label: 'OTHER', icon: <CreditCard className="w-6 h-6" /> },
-  ];
 
   return (
     <div className="min-h-screen bg-white pt-[8.75rem] pb-12">
@@ -431,54 +422,39 @@ export function Checkout() {
 
               {/* Payment Method */}
               <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">
-                Método de pago
+                Secure card payment
               </h3>
-              <div className="grid grid-cols-4 gap-2 mb-4">
-                {paymentTiles.map((tile) => (
-                  <button
-                    key={tile.id}
-                    type="button"
-                    onClick={() => setPaymentMethod(tile.id)}
-                    className={`flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-lg border-2 transition-colors ${paymentMethod === tile.id
-                        ? 'border-[#333] bg-gray-100 text-[#333]'
-                        : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                      }`}
-                  >
-                    {tile.icon}
-                    <span className="text-xs font-bold">{tile.label}</span>
-                  </button>
-                ))}
+              <div className="flex items-center gap-3 mb-4 p-3 rounded-lg border border-gray-200 bg-white">
+                <div className="w-10 h-10 rounded-full bg-[#1e5631]/10 text-[#1e5631] flex items-center justify-center">
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <div className="text-sm text-[#333]">
+                  Powered by Stripe. We accept debit/credit cards.
+                  <div className="text-xs text-gray-500">Your data is encrypted (TLS/SSL).</div>
+                </div>
               </div>
 
-              {/* Card details (Stripe) or Manual */}
-              {paymentMethod === 'card' ? (
-                clientSecret ? (
-                  <Elements stripe={stripePromise} options={{ clientSecret }}>
+              {clientSecret ? (
+                <Elements stripe={stripePromise} options={{ clientSecret, appearance: { theme: 'stripe' } }}>
+                  <div className="p-4 border border-gray-200 rounded-lg bg-white shadow-sm space-y-3">
                     <PaymentForm
                       formData={formData}
                       total={total}
                       items={items}
                       onSuccess={handleSuccess}
+                      canSubmit={isFormValid}
+                      disabledReason={formError || undefined}
                     />
-                  </Elements>
-                ) : (
-                  <div className="text-center py-4 text-gray-500">
-                    Cargando pasarela de pago...
+                    <div className="text-xs text-gray-500 flex items-center gap-2">
+                      <Lock className="w-4 h-4" />
+                      Protected payment. We do not store your card data.
+                    </div>
                   </div>
-                )
+                </Elements>
               ) : (
-                <form onSubmit={handleManualSubmit}>
-                  <div className="p-4 bg-yellow-50 text-yellow-800 text-sm rounded mb-4">
-                    Estás seleccionando pago manual ({paymentMethod}). Nos pondremos en contacto contigo.
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full bg-[#1e5631] hover:bg-[#164a28] text-white font-bold h-12 flex items-center justify-center gap-2"
-                  >
-                    <Lock className="w-5 h-5" />
-                    Confirmar pedido
-                  </Button>
-                </form>
+                <div className="text-center py-4 text-gray-500">
+                  Cargando pasarela de pago...
+                </div>
               )}
 
               <p className="text-xs text-gray-500 mt-4 text-center leading-relaxed">

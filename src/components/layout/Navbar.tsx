@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Menu, X, Search, LogIn, Truck } from 'lucide-react';
+import { ShoppingCart, Menu, X, Search, Truck } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
-import { useAuthStore } from '@/store/authStore';
 import { useProductsStore } from '@/store/productsStore';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { Button } from '@/components/ui/button';
@@ -22,7 +21,6 @@ export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { toggleCart, getTotalItems } = useCartStore();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated());
   const { products, fetchProducts } = useProductsStore();
   const { t } = useLanguage();
 
@@ -70,11 +68,6 @@ export function Navbar() {
   const handleNavigation = (path: string) => {
     setIsMenuOpen(false);
     navigate(path);
-  };
-
-  const handleLoginClick = () => {
-    setIsMenuOpen(false);
-    navigate(isAuthenticated ? '/admin' : '/login');
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -187,16 +180,6 @@ export function Navbar() {
 
             <button
               type="button"
-              onClick={handleLoginClick}
-              className="p-2 text-[#333] hover:text-[#1e5631] transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e5631]"
-              aria-label={isAuthenticated ? 'Ir al panel Admin' : 'Iniciar sesión'}
-              title={isAuthenticated ? 'Ir al panel Admin' : 'Iniciar sesión'}
-            >
-              <LogIn className="w-5 h-5" />
-            </button>
-
-            <button
-              type="button"
               onClick={toggleCart}
               className="relative p-2 text-[#333] hover:text-[#1e5631] transition-colors rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1e5631]"
               aria-label={t('nav.cart_view')}
@@ -290,14 +273,6 @@ export function Navbar() {
                 </Button>
               </form>
             </div>
-            <button
-              type="button"
-              onClick={handleLoginClick}
-              className="flex items-center gap-3 py-3 px-4 text-[#333] text-sm transition-colors hover:bg-[#f8f8f8] text-left w-full rounded"
-            >
-              <LogIn className="w-5 h-5 text-gray-500 shrink-0" />
-              {isAuthenticated ? t('nav.admin_panel') : t('nav.login')}
-            </button>
           </div>
         </div>
       )}

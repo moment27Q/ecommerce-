@@ -64,6 +64,7 @@ const translations: Translations = {
     'admin.carousel': { es: 'Carrusel', en: 'Carousel' },
     'admin.promoBanners': { es: 'Banners promocionales', en: 'Promo Banners' },
     'admin.offers': { es: 'Ofertas', en: 'Offers' },
+    'admin.actions': { es: 'Acciones', en: 'Actions' },
     'admin.services': { es: 'Servicios / Blog', en: 'Services / Blog' },
     'admin.logout': { es: 'Cerrar sesión', en: 'Logout' },
     'admin.language': { es: 'Idioma', en: 'Language' },
