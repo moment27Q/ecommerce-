@@ -2,8 +2,10 @@ import { useNavigate } from 'react-router-dom';
 import { X, Plus, Minus, ShoppingBag, Trash2 } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { Button } from '@/components/ui/button';
+import { useLanguage } from '@/context/LanguageContext';
 
 export function CartSidebar() {
+  const { t } = useLanguage();
   const { items, isCartOpen, setCartOpen, updateQuantity, removeFromCart, getTotalPrice, clearCart } = useCartStore();
   const navigate = useNavigate();
 
@@ -29,7 +31,7 @@ export function CartSidebar() {
         <div className="bg-[#f8f0ed] p-6 border-b border-[#c8a48c] flex items-center justify-between">
           <div className="flex items-center gap-3">
             <ShoppingBag className="w-6 h-6 text-[#946545]" />
-            <h2 className="text-xl font-medium text-[#333]">TU CARRITO</h2>
+            <h2 className="text-xl font-medium text-[#333]">{t('cart.title')}</h2>
             <span className="bg-[#946545] text-white text-xs px-2 py-1 rounded-full">
               {items.length}
             </span>
@@ -47,8 +49,8 @@ export function CartSidebar() {
           {items.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center">
               <ShoppingBag className="w-16 h-16 text-[#c8a48c] mb-4" />
-              <p className="text-[#333] text-lg mb-2">Tu carrito está vacío</p>
-              <p className="text-gray-500 text-sm">Agrega productos para comenzar tu compra</p>
+              <p className="text-[#333] text-lg mb-2">{t('cart.empty')}</p>
+              <p className="text-gray-500 text-sm">{t('cart.add_items')}</p>
               <Button
                 onClick={() => {
                   setCartOpen(false);
@@ -56,7 +58,7 @@ export function CartSidebar() {
                 }}
                 className="mt-6 btn-primary"
               >
-                Ver Productos
+                {t('cart.view_products')}
               </Button>
             </div>
           ) : (
@@ -83,7 +85,7 @@ export function CartSidebar() {
                     <div className="flex items-center gap-2 mt-1 flex-wrap">
                       {item.discountPercent != null && (
                         <span className="text-xs font-bold uppercase px-1.5 py-0.5 rounded bg-[#e85d04] text-white">
-                          Oferta -{item.discountPercent}%
+                          {t('cart.offer')} -{item.discountPercent}%
                         </span>
                       )}
                       <p className="text-[#946545] font-semibold">
@@ -132,7 +134,7 @@ export function CartSidebar() {
         {items.length > 0 && (
           <div className="border-t border-[#c8a48c] p-6 bg-[#f8f0ed]">
             <div className="flex items-center justify-between mb-4">
-              <span className="text-[#333] font-medium">Subtotal:</span>
+              <span className="text-[#333] font-medium">{t('cart.subtotal')}</span>
               <span className="text-xl font-semibold text-[#946545]">
                 S/ {getTotalPrice().toFixed(2)}
               </span>
@@ -142,7 +144,7 @@ export function CartSidebar() {
                 onClick={handleCheckout}
                 className="w-full btn-primary"
               >
-                Continuar Compra
+                {t('cart.checkout')}
               </Button>
               <div className="flex gap-2">
                 <Button
@@ -150,7 +152,7 @@ export function CartSidebar() {
                   variant="outline"
                   className="flex-1 border-[#946545] text-[#946545] hover:bg-[#946545] hover:text-white"
                 >
-                  Seguir Comprando
+                  {t('cart.continue_shopping')}
                 </Button>
                 <Button
                   onClick={clearCart}

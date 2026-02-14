@@ -208,6 +208,16 @@ const translations: Translations = {
     'login.password_lbl': { es: 'contraseña', en: 'password' },
     'login.error': { es: 'Error al iniciar sesión', en: 'Error logging in' },
 
+    // Cart
+    'cart.title': { es: 'TU CARRITO', en: 'YOUR CART' },
+    'cart.empty': { es: 'Tu carrito está vacío', en: 'Your cart is empty' },
+    'cart.add_items': { es: 'Agrega productos para comenzar tu compra', en: 'Add items to start shopping' },
+    'cart.view_products': { es: 'Ver Productos', en: 'View Products' },
+    'cart.offer': { es: 'Oferta', en: 'Offer' },
+    'cart.subtotal': { es: 'Subtotal:', en: 'Subtotal:' },
+    'cart.checkout': { es: 'Continuar Compra', en: 'Checkout' },
+    'cart.continue_shopping': { es: 'Seguir Comprando', en: 'Continue Shopping' },
+
 };
 
 type LanguageContextType = {
