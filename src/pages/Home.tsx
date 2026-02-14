@@ -7,7 +7,15 @@ import { useProductsStore } from '@/store/productsStore';
 import { Button } from '@/components/ui/button';
 import { ServicesSection } from '@/components/ServicesSection';
 
-const HERO_SLIDES_FALLBACK = [
+interface HeroSlide {
+  src: string;
+  alt: string;
+  title?: string;
+  highlight?: string;
+  description?: string;
+}
+
+const HERO_SLIDES_FALLBACK: HeroSlide[] = [
   { src: '/hero-banner.jpg', alt: 'Obra en construcción' },
   { src: '/promo-tools.jpg', alt: 'Herramientas' },
   { src: '/promo-materials.jpg', alt: 'Materiales' },
@@ -35,7 +43,7 @@ export function Home() {
   const { products, loading, error, fetchProducts } = useProductsStore();
   const featuredProducts = Array.isArray(products) ? products.slice(0, 8) : [];
   const [heroIndex, setHeroIndex] = useState(0);
-  const [heroSlides, setHeroSlides] = useState<{ src: string; alt: string }[]>([]);
+  const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([]);
   const [promoBanners, setPromoBanners] = useState<PromoBannerItem[]>([]);
   const [promoIndex, setPromoIndex] = useState(0);
   const [categories, setCategories] = useState<{ id: string; name: string; icon: string }[]>([]);
@@ -67,10 +75,16 @@ export function Home() {
     let cancelled = false;
     fetch(`${API}/carousel`)
       .then((res) => (res.ok ? res.json() : []))
-      .then((data: { src: string; alt: string }[]) => {
+      .then((data: HeroSlide[]) => {
         if (cancelled) return;
         const slides = Array.isArray(data) && data.length > 0
-          ? data.map((s) => ({ src: s.src || '', alt: s.alt || '' }))
+          ? data.map((s: any) => ({
+            src: s.src || '',
+            alt: s.alt || '',
+            title: s.title || '',
+            highlight: s.highlight || '',
+            description: s.description || ''
+          }))
           : HERO_SLIDES_FALLBACK;
         setHeroSlides(slides);
       })
@@ -210,12 +224,22 @@ export function Home() {
         {/* Content */}
         <div className="relative z-10 text-center text-white px-4 animate-fadeIn">
           <h1 className="text-4xl md:text-6xl font-medium mb-4 leading-tight">
-            {t('home.hero_title')}
-            <br />
-            <span className="text-[#c8a48c]">{t('home.hero_highlight')}</span>
+            {slides[heroIndex].title || slides[heroIndex].highlight ? (
+              <>
+                {slides[heroIndex].title}
+                <br />
+                <span className="text-[#c8a48c]">{slides[heroIndex].highlight}</span>
+              </>
+            ) : (
+              <>
+                {t('home.hero_title')}
+                <br />
+                <span className="text-[#c8a48c]">{t('home.hero_highlight')}</span>
+              </>
+            )}
           </h1>
           <p className="text-lg md:text-xl mb-8 max-w-2xl mx-auto text-gray-200">
-            {t('home.hero_desc')}
+            {slides[heroIndex].description || t('home.hero_desc')}
           </p>
           <Link to="/catalogo">
             <Button className="btn-primary text-lg px-8 py-4">

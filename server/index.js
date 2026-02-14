@@ -281,31 +281,75 @@ app.patch('/api/orders/:id/status', authMiddleware, (req, res) => {
 });
 
 // Carrusel (público)
+// Carrusel (público)
 app.get('/api/carousel', (req, res) => {
-  const rows = db.prepare('SELECT id, image, alt, sort_order AS sortOrder FROM carousel_slides ORDER BY sort_order ASC').all();
-  res.json(rows.map((r) => ({ id: r.id, src: r.image, alt: r.alt || '', sortOrder: r.sortOrder })));
+  const rows = db.prepare('SELECT id, image, alt, title, highlight, description, sort_order AS sortOrder FROM carousel_slides ORDER BY sort_order ASC').all();
+  res.json(rows.map((r) => ({
+    id: r.id,
+    src: r.image,
+    alt: r.alt || '',
+    title: r.title || '',
+    highlight: r.highlight || '',
+    description: r.description || '',
+    sortOrder: r.sortOrder
+  })));
 });
 
 // Carrusel (admin)
+// Carrusel (admin)
 app.post('/api/carousel', authMiddleware, (req, res) => {
-  const { image, alt } = req.body || {};
+  const { image, alt, title, highlight, description } = req.body || {};
   if (!image || typeof image !== 'string' || !image.trim()) return res.status(400).json({ error: 'URL de imagen requerida' });
   const count = db.prepare('SELECT COUNT(*) as n FROM carousel_slides').get();
   const sortOrder = count.n;
-  db.prepare('INSERT INTO carousel_slides (image, alt, sort_order) VALUES (?, ?, ?)').run(image.trim(), (alt && String(alt).trim()) || '', sortOrder);
-  const row = db.prepare('SELECT id, image, alt, sort_order AS sortOrder FROM carousel_slides ORDER BY id DESC LIMIT 1').get();
-  res.status(201).json({ id: row.id, src: row.image, alt: row.alt || '', sortOrder: row.sortOrder });
+  db.prepare('INSERT INTO carousel_slides (image, alt, title, highlight, description, sort_order) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(
+      image.trim(),
+      (alt && String(alt).trim()) || '',
+      (title && String(title).trim()) || null,
+      (highlight && String(highlight).trim()) || null,
+      (description && String(description).trim()) || null,
+      sortOrder
+    );
+  const row = db.prepare('SELECT id, image, alt, title, highlight, description, sort_order AS sortOrder FROM carousel_slides ORDER BY id DESC LIMIT 1').get();
+  res.status(201).json({
+    id: row.id,
+    src: row.image,
+    alt: row.alt || '',
+    title: row.title || '',
+    highlight: row.highlight || '',
+    description: row.description || '',
+    sortOrder: row.sortOrder
+  });
 });
 
 app.put('/api/carousel/:id', authMiddleware, (req, res) => {
   const { id } = req.params;
-  const { image, alt, sortOrder } = req.body || {};
+  const { image, alt, title, highlight, description, sortOrder } = req.body || {};
   const existing = db.prepare('SELECT * FROM carousel_slides WHERE id = ?').get(id);
   if (!existing) return res.status(404).json({ error: 'Slide no encontrado' });
-  db.prepare('UPDATE carousel_slides SET image = ?, alt = ?, sort_order = ? WHERE id = ?')
-    .run(image != null ? String(image).trim() : existing.image, alt != null ? String(alt).trim() : existing.alt, sortOrder != null ? Number(sortOrder) : existing.sort_order, id);
-  const row = db.prepare('SELECT id, image, alt, sort_order AS sortOrder FROM carousel_slides WHERE id = ?').get(id);
-  res.json({ id: row.id, src: row.image, alt: row.alt || '', sortOrder: row.sortOrder });
+
+  db.prepare('UPDATE carousel_slides SET image = ?, alt = ?, title = ?, highlight = ?, description = ?, sort_order = ? WHERE id = ?')
+    .run(
+      image != null ? String(image).trim() : existing.image,
+      alt != null ? String(alt).trim() : existing.alt,
+      title !== undefined ? (title ? String(title).trim() : null) : existing.title,
+      highlight !== undefined ? (highlight ? String(highlight).trim() : null) : existing.highlight,
+      description !== undefined ? (description ? String(description).trim() : null) : existing.description,
+      sortOrder != null ? Number(sortOrder) : existing.sort_order,
+      id
+    );
+
+  const row = db.prepare('SELECT id, image, alt, title, highlight, description, sort_order AS sortOrder FROM carousel_slides WHERE id = ?').get(id);
+  res.json({
+    id: row.id,
+    src: row.image,
+    alt: row.alt || '',
+    title: row.title || '',
+    highlight: row.highlight || '',
+    description: row.description || '',
+    sortOrder: row.sortOrder
+  });
 });
 
 app.delete('/api/carousel/:id', authMiddleware, (req, res) => {
@@ -325,8 +369,15 @@ app.patch('/api/carousel/reorder', authMiddleware, (req, res) => {
   order.forEach((id, i) => {
     db.prepare('UPDATE carousel_slides SET sort_order = ? WHERE id = ?').run(i, id);
   });
-  const rows = db.prepare('SELECT id, image, alt, sort_order AS sortOrder FROM carousel_slides ORDER BY sort_order ASC').all();
-  res.json(rows.map((r) => ({ id: r.id, src: r.image, alt: r.alt || '', sortOrder: r.sortOrder })));
+  const rows = db.prepare('SELECT id, image, alt, title, description, sort_order AS sortOrder FROM carousel_slides ORDER BY sort_order ASC').all();
+  res.json(rows.map((r) => ({
+    id: r.id,
+    src: r.image,
+    alt: r.alt || '',
+    title: r.title || '',
+    description: r.description || '',
+    sortOrder: r.sortOrder
+  })));
 });
 
 // Banners promocionales (público)

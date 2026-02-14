@@ -87,6 +87,9 @@ export interface CarouselSlide {
   id: number;
   src: string;
   alt: string;
+  title?: string;
+  highlight?: string;
+  description?: string;
   sortOrder: number;
 }
 
@@ -166,7 +169,7 @@ export function Admin() {
   const [carouselLoading, setCarouselLoading] = useState(false);
   const [slideDialogOpen, setSlideDialogOpen] = useState(false);
   const [editingSlideId, setEditingSlideId] = useState<number | null>(null);
-  const [slideForm, setSlideForm] = useState({ image: '', alt: '' });
+  const [slideForm, setSlideForm] = useState({ image: '', alt: '', title: '', highlight: '', description: '' });
   const [slideSaving, setSlideSaving] = useState(false);
   const [slideToDelete, setSlideToDelete] = useState<CarouselSlide | null>(null);
 
@@ -724,13 +727,13 @@ export function Admin() {
 
   const openAddSlide = () => {
     setEditingSlideId(null);
-    setSlideForm({ image: '', alt: '' });
+    setSlideForm({ image: '', alt: '', title: '', highlight: '', description: '' });
     setSlideDialogOpen(true);
   };
 
   const openEditSlide = (slide: CarouselSlide) => {
     setEditingSlideId(slide.id);
-    setSlideForm({ image: slide.src, alt: slide.alt });
+    setSlideForm({ image: slide.src, alt: slide.alt, title: slide.title || '', highlight: slide.highlight || '', description: slide.description || '' });
     setSlideDialogOpen(true);
   };
 
@@ -738,10 +741,17 @@ export function Admin() {
     if (!slideForm.image.trim()) return;
     setSlideSaving(true);
     try {
+      const body = JSON.stringify({
+        image: slideForm.image.trim(),
+        alt: slideForm.alt.trim(),
+        title: slideForm.title.trim(),
+        highlight: slideForm.highlight.trim(),
+        description: slideForm.description.trim()
+      });
       if (editingSlideId != null) {
         const res = await fetchWithAuth(`${API}/carousel/${editingSlideId}`, {
           method: 'PUT',
-          body: JSON.stringify({ image: slideForm.image.trim(), alt: slideForm.alt.trim() }),
+          body,
         });
         if (res.status === 401) {
           logout();
@@ -752,7 +762,7 @@ export function Admin() {
       } else {
         const res = await fetchWithAuth(`${API}/carousel`, {
           method: 'POST',
-          body: JSON.stringify({ image: slideForm.image.trim(), alt: slideForm.alt.trim() }),
+          body,
         });
         if (res.status === 401) {
           logout();
@@ -762,7 +772,7 @@ export function Admin() {
         if (!res.ok) throw new Error('Error al crear');
       }
       setSlideDialogOpen(false);
-      setSlideForm({ image: '', alt: '' });
+      setSlideForm({ image: '', alt: '', title: '', highlight: '', description: '' });
       setEditingSlideId(null);
       await loadCarousel();
     } catch (e) {
@@ -2552,6 +2562,33 @@ export function Admin() {
                   <span className="text-xs text-green-600">Imagen seleccionada</span>
                 )}
               </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="slide-title">Título (opcional)</Label>
+              <Input
+                id="slide-title"
+                value={slideForm.title}
+                onChange={(e) => setSlideForm((f) => ({ ...f, title: e.target.value }))}
+                placeholder="Título principal del slide"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="slide-highlight">Texto destacado (opcional)</Label>
+              <Input
+                id="slide-highlight"
+                value={slideForm.highlight}
+                onChange={(e) => setSlideForm((f) => ({ ...f, highlight: e.target.value }))}
+                placeholder="Texto en color diferente (ej. CONSTRUCCIÓN)"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="slide-desc">Descripción (opcional)</Label>
+              <Input
+                id="slide-desc"
+                value={slideForm.description}
+                onChange={(e) => setSlideForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder="Descripción corta"
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="slide-alt">Texto alternativo (opcional)</Label>

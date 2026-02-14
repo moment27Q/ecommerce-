@@ -40,3 +40,13 @@ export interface Category {
   name: string;
   icon: string;
 }
+
+export interface CarouselSlide {
+  id: number;
+  src: string;
+  alt: string;
+  title?: string;
+  highlight?: string;
+  description?: string;
+  sortOrder: number;
+}

@@ -57,6 +57,9 @@ export function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       image TEXT NOT NULL,
       alt TEXT NOT NULL DEFAULT '',
+      title TEXT,
+      highlight TEXT,
+      description TEXT,
       sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now'))
     );
@@ -77,6 +80,26 @@ export function initDb() {
       FOREIGN KEY (product_id) REFERENCES products(id)
     );
   `);
+
+  // Migration for carousel_slides
+  try {
+    const tableInfo = db.pragma('table_info(carousel_slides)');
+    const hasTitle = tableInfo.some(col => col.name === 'title');
+    const hasDesc = tableInfo.some(col => col.name === 'description');
+
+    if (!hasTitle) {
+      db.prepare('ALTER TABLE carousel_slides ADD COLUMN title TEXT').run();
+    }
+    if (!hasDesc) {
+      db.prepare('ALTER TABLE carousel_slides ADD COLUMN description TEXT').run();
+    }
+    const hasHighlight = tableInfo.some(col => col.name === 'highlight');
+    if (!hasHighlight) {
+      db.prepare('ALTER TABLE carousel_slides ADD COLUMN highlight TEXT').run();
+    }
+  } catch (error) {
+    console.error('Error migrating carousel_slides:', error);
+  }
 }
 
 /** Asegura que la tabla categories exista y tenga datos iniciales. */
