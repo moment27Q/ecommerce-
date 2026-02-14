@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ShoppingCart,
@@ -14,15 +14,113 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { Order } from '@/types';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+
+const stripePromise = loadStripe('pk_test_51T0bG9B7JC0XRRBAnsPhW00XkgbpMyTzAUrAgClrrM0MPZFL3bz6AbLfSQy0ka9AYT0SUcuhArw4Yb80RzsfzKUT00tkCxWbK9');
 
 type PaymentMethod = 'card' | 'yape' | 'plin' | 'other';
+
+function PaymentForm({
+  formData,
+  total,
+  items,
+  onSuccess
+}: {
+  formData: any,
+  total: number,
+  items: any[],
+  onSuccess: (orderId: string) => void
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [message, setMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!stripe || !elements) return;
+
+    setIsLoading(true);
+
+    const { error, paymentIntent } = await stripe.confirmPayment({
+      elements,
+      confirmParams: {
+        return_url: window.location.origin + '/checkout?status=success', // Note: we handle success manually below without redirect if possible, but confirmPayment usually redirects
+      },
+      redirect: 'if_required',
+    });
+
+    if (error) {
+      setMessage(error.message || 'Error desconocido');
+      setIsLoading(false);
+    } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+      // Registrar la orden en backend
+      const orderId = `ORD-${Date.now()}`;
+      const orderPayload = {
+        id: orderId,
+        customer: {
+          name: formData.fullName,
+          phone: formData.phone,
+          address: formData.address,
+          notes: formData.email ? `Email: ${formData.email}` : undefined,
+        },
+        items: [...items],
+        total,
+        paymentMethod: 'card',
+        stripePaymentId: paymentIntent.id
+      };
+
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(orderPayload),
+        });
+        if (!res.ok) throw new Error('Error al registrar el pedido');
+        onSuccess(orderId);
+      } catch (err: any) {
+        setMessage(err.message || 'Error al guardar la orden');
+        setIsLoading(false);
+      }
+    } else {
+      setMessage('El pago no se pudo confirmar.');
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <PaymentElement />
+      {message && <div className="text-red-500 text-sm mt-2">{message}</div>}
+      <Button
+        type="submit"
+        disabled={isLoading || !stripe || !elements}
+        className="w-full bg-[#1e5631] hover:bg-[#164a28] text-white font-bold h-12 flex items-center justify-center gap-2 mt-4"
+      >
+        {isLoading ? (
+          <span className="flex items-center gap-2">
+            <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            Procesando...
+          </span>
+        ) : (
+          <>
+            <Lock className="w-5 h-5" />
+            Pagar S/ {total.toFixed(2)}
+          </>
+        )}
+      </Button>
+    </form>
+  );
+}
 
 export function Checkout() {
   const navigate = useNavigate();
   const { items, getTotalPrice, clearCart, addOrder, updateQuantity, removeFromCart } =
     useCartStore();
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('card');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [clientSecret, setClientSecret] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
@@ -36,10 +134,38 @@ export function Checkout() {
   const taxEstimated = Math.round(subtotal * 0.08 * 100) / 100;
   const total = subtotal + shipping + taxEstimated;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  // Cargar PaymentIntent cuando se seleccione tarjeta y haya datos válidos
+  useEffect(() => {
+    if (items.length > 0 && paymentMethod === 'card') {
+      // Reset clientSecret if items change to force re-initialization with correct amount
+      setClientSecret('');
+      
+      fetch('/api/create-payment-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items, customer: { name: formData.fullName, email: formData.email } }),
+      })
+        .then((res) => {
+            if (!res.ok) throw new Error('Error al iniciar pago');
+            return res.json();
+        })
+        .then((data) => {
+            if (data.clientSecret) {
+                setClientSecret(data.clientSecret);
+            } else {
+                console.error('No clientSecret returned');
+            }
+        })
+        .catch((err) => {
+            console.error('Error fetching payment intent:', err);
+            // Optional: Set an error state to display to user
+        });
+    }
+  }, [items, paymentMethod]); // Re-run when items or method changes
 
+  const handleManualSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    // Lógica para otros métodos de pago (Yape, Plin, Transferencia) - SIMULADO/MANUAL
     const orderId = `ORD-${Date.now()}`;
     const orderPayload = {
       id: orderId,
@@ -61,19 +187,26 @@ export function Checkout() {
         body: JSON.stringify(orderPayload),
       });
       if (!res.ok) throw new Error('Error al registrar el pedido');
-      addOrder({
-        ...orderPayload,
-        status: 'pending',
-        createdAt: new Date(),
-      } as Order);
-      clearCart();
-      setShowSuccess(true);
+      handleSuccess(orderId);
     } catch (err) {
       console.error(err);
-      setShowSuccess(false);
-    } finally {
-      setIsSubmitting(false);
+      alert('Error registrando pedido manual');
     }
+  };
+
+  const handleSuccess = (orderId: string) => {
+    // Add simplified order to store state for UI feedback if needed
+    addOrder({
+      id: orderId,
+      customer: { name: formData.fullName, phone: formData.phone, address: formData.address },
+      items: [...items],
+      total,
+      paymentMethod: paymentMethod === 'card' ? 'card' : (paymentMethod === 'other' ? 'transfer' : paymentMethod),
+      status: 'pending', // or 'paid' if card
+      createdAt: new Date(),
+    } as Order);
+    clearCart();
+    setShowSuccess(true);
   };
 
   if (items.length === 0 && !showSuccess) {
@@ -113,7 +246,7 @@ export function Checkout() {
   return (
     <div className="min-h-screen bg-white pt-[8.75rem] pb-12">
       <div className="max-w-[80rem] mx-auto px-[5%] py-8">
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left column: Review Your Order + Delivery Information */}
           <div className="lg:col-span-2 space-y-8">
             {/* Envío destacado */}
@@ -306,11 +439,10 @@ export function Checkout() {
                     key={tile.id}
                     type="button"
                     onClick={() => setPaymentMethod(tile.id)}
-                    className={`flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-lg border-2 transition-colors ${
-                      paymentMethod === tile.id
+                    className={`flex flex-col items-center justify-center gap-1 py-3 px-2 rounded-lg border-2 transition-colors ${paymentMethod === tile.id
                         ? 'border-[#333] bg-gray-100 text-[#333]'
                         : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     {tile.icon}
                     <span className="text-xs font-bold">{tile.label}</span>
@@ -318,64 +450,40 @@ export function Checkout() {
                 ))}
               </div>
 
-              {/* Card details (when CARD selected) */}
-              {paymentMethod === 'card' && (
-                <div className="space-y-3 mb-6">
-                  <div>
-                    <Label htmlFor="cardNumber" className="text-sm text-gray-600">
-                      Número de tarjeta
-                    </Label>
-                    <Input
-                      id="cardNumber"
-                      placeholder="•••• •••• •••• ••••"
-                      className="mt-1 bg-white border-gray-200"
+              {/* Card details (Stripe) or Manual */}
+              {paymentMethod === 'card' ? (
+                clientSecret ? (
+                  <Elements stripe={stripePromise} options={{ clientSecret }}>
+                    <PaymentForm
+                      formData={formData}
+                      total={total}
+                      items={items}
+                      onSuccess={handleSuccess}
                     />
+                  </Elements>
+                ) : (
+                  <div className="text-center py-4 text-gray-500">
+                    Cargando pasarela de pago...
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label htmlFor="expiry" className="text-sm text-gray-600">
-                        MM / YY
-                      </Label>
-                      <Input
-                        id="expiry"
-                        placeholder="MM / YY"
-                        className="mt-1 bg-white border-gray-200"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="cvc" className="text-sm text-gray-600">
-                        CVC
-                      </Label>
-                      <Input
-                        id="cvc"
-                        placeholder="CVC"
-                        className="mt-1 bg-white border-gray-200"
-                      />
-                    </div>
+                )
+              ) : (
+                <form onSubmit={handleManualSubmit}>
+                  <div className="p-4 bg-yellow-50 text-yellow-800 text-sm rounded mb-4">
+                    Estás seleccionando pago manual ({paymentMethod}). Nos pondremos en contacto contigo.
                   </div>
-                </div>
+                  <Button
+                    type="submit"
+                    className="w-full bg-[#1e5631] hover:bg-[#164a28] text-white font-bold h-12 flex items-center justify-center gap-2"
+                  >
+                    <Lock className="w-5 h-5" />
+                    Confirmar pedido
+                  </Button>
+                </form>
               )}
 
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-[#1e5631] hover:bg-[#164a28] text-white font-bold h-12 flex items-center justify-center gap-2"
-              >
-                {isSubmitting ? (
-                  <span className="flex items-center gap-2">
-                    <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Procesando...
-                  </span>
-                ) : (
-                  <>
-                    <Lock className="w-5 h-5" />
-                    Confirmar compra
-                  </>
-                )}
-              </Button>
               <p className="text-xs text-gray-500 mt-4 text-center leading-relaxed">
-                Al hacer clic en &quot;Confirmar compra&quot;, aceptas nuestros Términos
-                de servicio y Política de privacidad. Pago seguro cifrado.
+                Al hacer clic en "Pagar" o "Confirmar", aceptas nuestros Términos
+                de servicio. Pago seguro cifrado.
               </p>
             </div>
 
@@ -385,7 +493,7 @@ export function Checkout() {
               <span>CONEXIÓN SEGURA SSL</span>
             </div>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

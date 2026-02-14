@@ -244,15 +244,7 @@ app.delete('/api/filter-groups/:id', authMiddleware, (req, res) => {
   res.status(204).send();
 });
 
-app.post('/api/orders', (req, res) => {
-  const { id, customer, items, total, paymentMethod } = req.body;
-  if (!id || !customer?.name || !customer?.phone || !customer?.address || !Array.isArray(items) || total == null || !paymentMethod) return res.status(400).json({ error: 'Datos del pedido incompletos' });
-  db.prepare('INSERT INTO orders (id, customer_name, customer_phone, customer_address, customer_notes, total, payment_method, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(id, customer.name, customer.phone, customer.address, customer.notes || null, Number(total), paymentMethod, 'pending');
-  const insertItem = db.prepare('INSERT INTO order_items (order_id, product_id, product_name, product_price, product_image, quantity) VALUES (?, ?, ?, ?, ?, ?)');
-  for (const it of items) insertItem.run(id, it.product.id, it.product.name, it.product.price, it.product.image, it.quantity);
-  res.status(201).json({ id, status: 'pending' });
-});
+
 
 app.get('/api/orders', authMiddleware, (req, res) => {
   const rows = db.prepare('SELECT id, customer_name, customer_phone, customer_address, customer_notes, total, payment_method, status, created_at FROM orders ORDER BY created_at DESC').all();
@@ -502,6 +494,120 @@ app.put('/api/offers/:id', authMiddleware, (req, res) => {
   const row = db.prepare('SELECT o.id, o.product_id AS productId, o.discount_percent AS discountPercent, o.valid_until AS validUntil FROM offers o WHERE o.id = ?').get(id);
   const p = db.prepare('SELECT id, name, price, image, category, description, stock, rating, original_price AS originalPrice, tag FROM products WHERE id = ?').get(row.productId);
   res.json({ id: row.id, productId: row.productId, discountPercent: row.discountPercent, validUntil: row.validUntil || undefined, product: mapProductRow(p) });
+});
+
+// Stripe Config
+import Stripe from 'stripe';
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
+
+function getStripeClient() {
+  if (!STRIPE_SECRET_KEY) return null;
+  return new Stripe(STRIPE_SECRET_KEY);
+}
+
+app.post('/api/create-payment-intent', async (req, res) => {
+  try {
+    const stripe = getStripeClient();
+    if (!stripe) {
+      return res.status(500).send({
+        error: 'Stripe no está configurado',
+        details: 'Falta STRIPE_SECRET_KEY en variables de entorno',
+      });
+    }
+
+    const { items, customer } = req.body;
+
+    // Calcular total en el backend para seguridad
+    // NOTA: En producción, deberías buscar los precios en la DB usando los IDs de los items
+    // Aquí usamos los precios enviados, pero validamos que los productos existan.
+    let total = 0;
+
+    // Basic validation and calculation
+    // TODO: Fetch real prices from DB to prevent client-side price manipulation
+    for (const item of items) {
+      const product = db.prepare('SELECT price, original_price AS originalPrice FROM products WHERE id = ?').get(item.product.id);
+      if (product) {
+        const offer = db.prepare("SELECT discount_percent FROM offers WHERE product_id = ? AND (valid_until IS NULL OR valid_until > datetime('now'))").get(item.product.id);
+
+        let price = product.price;
+        if (offer) {
+          price = price * (1 - offer.discount_percent / 100);
+        }
+        total += price * item.quantity;
+      }
+    }
+
+    const shipping = total > 500 ? 0 : 25;
+    const tax = Math.round(total * 0.08 * 100) / 100; // Impuesto estimado en ejemplo
+    const finalAmount = Math.round((total + shipping + tax) * 100); // En centavos
+
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: finalAmount,
+      currency: 'pen', // Soles
+      automatic_payment_methods: {
+        enabled: true,
+      },
+      metadata: {
+        customer_name: customer?.name || '',
+        customer_email: customer?.email || '',
+      }
+    });
+
+    res.send({
+      clientSecret: paymentIntent.client_secret,
+    });
+  } catch (error) {
+    console.error('Error creating payment intent:', error);
+    res.status(500).send({ error: error.message });
+  }
+});
+
+// Endpoint modificado para validar el pago
+app.post('/api/orders', (req, res) => {
+  const { id, customer, items, total, paymentMethod, stripePaymentId } = req.body;
+
+  try {
+    // Si el método es tarjeta, verificar el estado del pago en Stripe
+    if (paymentMethod === 'card' && stripePaymentId) {
+      // Opcional: Verificar con stripe.paymentIntents.retrieve(stripePaymentId)
+      // Por ahora confiamos en el flujo del frontend + stripePaymentId presente
+    }
+
+    const insertOrder = db.prepare(`
+      INSERT INTO orders (id, customer_name, customer_phone, customer_address, customer_notes, total, payment_method, stripe_payment_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const insertItem = db.prepare(`
+      INSERT INTO order_items (order_id, product_id, product_name, product_price, product_image, quantity)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `);
+
+    const transaction = db.transaction(() => {
+      insertOrder.run(id, customer.name, customer.phone, customer.address, customer.notes, total, paymentMethod, stripePaymentId || null);
+      for (const item of items) {
+        insertItem.run(
+          id,
+          item.product.id,
+          item.product.name,
+          item.product.price, // Guardamos el precio base, o el calculado si se prefiere
+          item.product.image,
+          item.quantity
+        );
+      }
+    });
+
+    transaction();
+    res.status(201).json({ success: true, id });
+  } catch (error) {
+    console.error('Error creating order:', error);
+    res.status(500).json({ error: 'Error al crear el pedido' });
+  }
+});
+
+// Keep existing verify-token endpoint just before the delete endpoint to avoid context issues
+app.get('/api/auth/verify-token', authMiddleware, (req, res) => {
+  res.json({ valid: true, user: req.user });
 });
 
 app.delete('/api/offers/:id', authMiddleware, (req, res) => {

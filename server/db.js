@@ -100,6 +100,17 @@ export function initDb() {
   } catch (error) {
     console.error('Error migrating carousel_slides:', error);
   }
+
+  // Migration for orders (Stripe)
+  try {
+    const tableInfo = db.pragma('table_info(orders)');
+    const hasStripeId = tableInfo.some(col => col.name === 'stripe_payment_id');
+    if (!hasStripeId) {
+      db.prepare('ALTER TABLE orders ADD COLUMN stripe_payment_id TEXT').run();
+    }
+  } catch (error) {
+    console.error('Error migrating orders:', error);
+  }
 }
 
 /** Asegura que la tabla categories exista y tenga datos iniciales. */
