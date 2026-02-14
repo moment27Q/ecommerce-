@@ -1,7 +1,7 @@
 import { ArrowRight, Zap, Building2, Wrench, HardHat, Factory, Hammer } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { useLanguage } from '@/context/LanguageContext';
+import { ServiceDetailModal } from '@/components/ServiceDetailModal';
 
 interface Service {
     id: number;
@@ -33,6 +33,7 @@ export function Services() {
     const [activeFilter, setActiveFilter] = useState<string>('all');
     const [services, setServices] = useState<Service[]>([]);
     const [loading, setLoading] = useState(true);
+    const [selectedService, setSelectedService] = useState<Service | null>(null);
 
     useEffect(() => {
         fetch(`${API}/services`)
@@ -69,6 +70,11 @@ export function Services() {
 
     return (
         <div className="min-h-screen pt-[8.75rem] pb-20 bg-white">
+            <ServiceDetailModal
+                service={selectedService}
+                isOpen={!!selectedService}
+                onClose={() => setSelectedService(null)}
+            />
             <div className="max-w-[80rem] mx-auto px-[5%]">
 
                 {/* Header */}
@@ -115,14 +121,37 @@ export function Services() {
                                         {t('services.featured_tag')}
                                     </span>
                                 </div>
-                                <img
-                                    src={featuredService.image}
-                                    alt={featuredService.title}
-                                    onError={(e) => {
-                                        e.currentTarget.src = 'https://placehold.co/800x600/e2e8f0/1e5631?text=Residencial';
-                                    }}
-                                    className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
-                                />
+                                {featuredService.video ? (
+                                    (() => {
+                                        const isYouTube = featuredService.video.includes('youtube.com') || featuredService.video.includes('youtu.be');
+                                        if (isYouTube) {
+                                            const match = featuredService.video.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+                                            const videoId = match ? match[1] : null;
+                                            return videoId ? (
+                                                <iframe
+                                                    src={`https://www.youtube.com/embed/${videoId}`}
+                                                    title={featuredService.title}
+                                                    className="w-full h-full object-cover"
+                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                    allowFullScreen
+                                                />
+                                            ) : (
+                                                <div className="flex items-center justify-center w-full h-full text-gray-500 text-sm">Video no disponible</div>
+                                            );
+                                        } else {
+                                            return <video src={featuredService.video} controls className="w-full h-full object-cover" />;
+                                        }
+                                    })()
+                                ) : (
+                                    <img
+                                        src={featuredService.image}
+                                        alt={featuredService.title}
+                                        onError={(e) => {
+                                            e.currentTarget.src = 'https://placehold.co/800x600/e2e8f0/1e5631?text=Residencial';
+                                        }}
+                                        className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
+                                    />
+                                )}
                             </div>
                             <div className="p-8 lg:p-12 flex flex-col justify-center order-2 lg:order-2">
                                 <div className="flex items-center gap-4 text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4">
@@ -136,13 +165,13 @@ export function Services() {
                                 <p className="text-gray-500 text-base leading-relaxed mb-8">
                                     {featuredService.description}
                                 </p>
-                                <Link
-                                    to="/contact"
+                                <button
+                                    onClick={() => setSelectedService(featuredService)}
                                     className="inline-flex items-center text-[#1e5631] font-bold text-sm uppercase tracking-wide group relative w-fit"
                                 >
                                     {t('services.read_article')}
                                     <div className="h-[1px] w-0 bg-[#1e5631] absolute bottom-0 left-0 transition-all duration-300 group-hover:w-full"></div>
-                                </Link>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -162,15 +191,40 @@ export function Services() {
                                         {service.category}
                                     </span>
                                 </div>
-                                <img
-                                    src={service.image}
-                                    alt={service.title}
-                                    onError={(e) => {
-                                        e.currentTarget.src = 'https://placehold.co/600x400/e2e8f0/1e5631?text=' + encodeURIComponent(service.category);
-                                    }}
-                                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                                />
-                                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                {service.video ? (
+                                    (() => {
+                                        const isYouTube = service.video.includes('youtube.com') || service.video.includes('youtu.be');
+                                        if (isYouTube) {
+                                            const match = service.video.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/);
+                                            const videoId = match ? match[1] : null;
+                                            return videoId ? (
+                                                <iframe
+                                                    src={`https://www.youtube.com/embed/${videoId}`}
+                                                    title={service.title}
+                                                    className="w-full h-full object-cover"
+                                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                    allowFullScreen
+                                                />
+                                            ) : (
+                                                <div className="flex items-center justify-center w-full h-full text-gray-500 text-sm">Video no disponible</div>
+                                            );
+                                        } else {
+                                            return <video src={service.video} controls className="w-full h-full object-cover" />;
+                                        }
+                                    })()
+                                ) : (
+                                    <>
+                                        <img
+                                            src={service.image}
+                                            alt={service.title}
+                                            onError={(e) => {
+                                                e.currentTarget.src = 'https://placehold.co/600x400/e2e8f0/1e5631?text=' + encodeURIComponent(service.category);
+                                            }}
+                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                    </>
+                                )}
                             </div>
 
                             {/* Content */}
@@ -182,8 +236,8 @@ export function Services() {
                                     {service.description}
                                 </p>
 
-                                <Link
-                                    to="/contact"
+                                <button
+                                    onClick={() => setSelectedService(service)}
                                     className="inline-flex items-center text-[#1e5631] font-semibold text-sm group/link mt-auto"
                                 >
                                     {t('services.view_details')}
@@ -192,7 +246,7 @@ export function Services() {
                                         const Icon = getIconForCategory(service.category);
                                         return <Icon className="w-4 h-4 ml-2 opacity-0 -translate-x-2 group-hover/link:opacity-100 group-hover/link:translate-x-0 transition-all duration-300 text-[#e85d04]" />;
                                     })()}
-                                </Link>
+                                </button>
                             </div>
                         </div>
                     ))}

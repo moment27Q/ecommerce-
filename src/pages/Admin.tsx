@@ -3015,6 +3015,35 @@ export function Admin() {
                 onChange={(e) => setServiceForm((f) => ({ ...f, video: e.target.value }))}
                 placeholder="https://youtube.com/..."
               />
+              <div className="flex items-center gap-2">
+                <input
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  id="service-video-file"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (file.size > 10 * 1024 * 1024) {
+                      alert("El video es demasiado grande (máx 10MB). Por favor usa una URL de YouTube.");
+                      return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const result = reader.result;
+                      if (typeof result === 'string') setServiceForm((f) => ({ ...f, video: result }));
+                    };
+                    reader.readAsDataURL(file);
+                    e.target.value = '';
+                  }}
+                />
+                <Label
+                  htmlFor="service-video-file"
+                  className="cursor-pointer text-xs text-[#1e5631] hover:underline"
+                >
+                  Subir video (máx 10MB)
+                </Label>
+              </div>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="service-desc">{t('admin.description')} *</Label>

@@ -27,7 +27,7 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 
 app.post('/api/contact/sms', async (req, res) => {
-  const { fullName, email, subject, message } = req.body || {};
+  const { fullName, email, phone, subject, message } = req.body || {};
 
   if (!message) {
     return res.status(400).json({ error: 'El mensaje es obligatorio' });
@@ -36,6 +36,7 @@ app.post('/api/contact/sms', async (req, res) => {
   const body = `Nuevo mensaje de contacto:\n\n` +
     (fullName ? `Nombre: ${fullName}\n` : '') +
     (email ? `Correo: ${email}\n` : '') +
+    (phone ? `Teléfono: ${phone}\n` : '') +
     (subject ? `Asunto: ${subject}\n` : '') +
     `Mensaje:\n${message}`;
 
