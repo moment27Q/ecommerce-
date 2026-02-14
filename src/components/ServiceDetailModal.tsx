@@ -190,7 +190,7 @@ export function ServiceDetailModal({ service, isOpen, onClose }: ServiceDetailMo
                             {service.title}
                         </h2>
 
-                        <div className="prose prose-sm prose-slate max-w-none text-gray-600">
+                        <div className="prose prose-sm prose-slate max-w-none text-gray-600 break-words break-all">
                             <p className="font-medium text-gray-700 leading-relaxed mb-6">
                                 {service.description}
                             </p>
