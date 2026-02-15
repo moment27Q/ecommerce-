@@ -497,12 +497,43 @@ app.put('/api/offers/:id', authMiddleware, (req, res) => {
 });
 
 // Stripe Config
+import dns from 'node:dns';
+import https from 'node:https';
+import net from 'node:net';
 import Stripe from 'stripe';
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 
+const stripeHttpAgent = new https.Agent({
+  lookup: (hostname, options, callback) => {
+    if (typeof options === 'function') {
+      callback = options;
+      options = {};
+    }
+    if (typeof options === 'number') {
+      options = { family: options };
+    }
+
+    const ipFamily = net.isIP(hostname);
+    if (ipFamily) {
+      return callback(null, hostname, ipFamily);
+    }
+
+    const wantAll = Boolean(options && options.all);
+
+    dns.resolve4(hostname, (err, addresses) => {
+      if (err) return callback(err);
+      if (!addresses || addresses.length === 0) return callback(new Error('DNS resolve4 returned no addresses'));
+      if (wantAll) {
+        return callback(null, addresses.map((a) => ({ address: a, family: 4 })));
+      }
+      return callback(null, addresses[0], 4);
+    });
+  },
+});
+
 function getStripeClient() {
   if (!STRIPE_SECRET_KEY) return null;
-  return new Stripe(STRIPE_SECRET_KEY);
+  return new Stripe(STRIPE_SECRET_KEY, { httpAgent: stripeHttpAgent });
 }
 
 app.post('/api/create-payment-intent', async (req, res) => {

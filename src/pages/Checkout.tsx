@@ -8,6 +8,7 @@ import {
   Plus,
   Lock,
   Check,
+  AlertCircle,
 } from 'lucide-react';
 import { useCartStore } from '@/store/cartStore';
 import { Button } from '@/components/ui/button';
@@ -44,7 +45,7 @@ function PaymentForm({
 
     if (!stripe || !elements) return;
     if (!canSubmit) {
-      setMessage(disabledReason || 'Completa los datos requeridos');
+      setMessage(disabledReason || 'Please complete the required information');
       return;
     }
 
@@ -59,7 +60,7 @@ function PaymentForm({
     });
 
     if (error) {
-      setMessage(error.message || 'Error desconocido');
+      setMessage(error.message || 'Unknown error');
       setIsLoading(false);
     } else if (paymentIntent && paymentIntent.status === 'succeeded') {
       // Registrar la orden en backend
@@ -84,14 +85,14 @@ function PaymentForm({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(orderPayload),
         });
-        if (!res.ok) throw new Error('Error al registrar el pedido');
+        if (!res.ok) throw new Error('Error registering the order');
         onSuccess(orderId);
       } catch (err: any) {
-        setMessage(err.message || 'Error al guardar la orden');
+        setMessage(err.message || 'Error saving the order');
         setIsLoading(false);
       }
     } else {
-      setMessage('El pago no se pudo confirmar.');
+      setMessage('Payment could not be confirmed.');
       setIsLoading(false);
     }
   };
@@ -113,12 +114,12 @@ function PaymentForm({
         {isLoading ? (
           <span className="flex items-center gap-2">
             <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            Procesando...
+            Processing...
           </span>
         ) : (
           <>
             <Lock className="w-5 h-5" />
-            Pagar S/ {total.toFixed(2)}
+            Pay S/ {total.toFixed(2)}
           </>
         )}
       </Button>
@@ -155,7 +156,7 @@ export function Checkout() {
 
   useEffect(() => {
     if (!isFormValid) {
-      setFormError('Completa los datos de envío (nombre, teléfono, dirección).');
+      setFormError('Complete shipping information (name, phone, address).');
     } else {
       setFormError(null);
     }
@@ -166,26 +167,26 @@ export function Checkout() {
     if (items.length > 0 && isFormValid) {
       // Reset clientSecret if items o datos de cliente cambian
       setClientSecret('');
-      
+
       fetch('/api/create-payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ items, customer: { name: formData.fullName, email: formData.email } }),
       })
         .then((res) => {
-            if (!res.ok) throw new Error('Error al iniciar pago');
-            return res.json();
+          if (!res.ok) throw new Error('Error initiating payment');
+          return res.json();
         })
         .then((data) => {
-            if (data.clientSecret) {
-                setClientSecret(data.clientSecret);
-            } else {
-                console.error('No clientSecret returned');
-            }
+          if (data.clientSecret) {
+            setClientSecret(data.clientSecret);
+          } else {
+            console.error('No clientSecret returned');
+          }
         })
         .catch((err) => {
-            console.error('Error fetching payment intent:', err);
-            setFormError('No se pudo iniciar la pasarela de pago. Intenta nuevamente.');
+          console.error('Error fetching payment intent:', err);
+          setFormError('Could not start payment gateway. Please try again.');
         });
     } else {
       setClientSecret('');
@@ -219,15 +220,15 @@ export function Checkout() {
           <div className="w-20 h-20 bg-[#1e5631] rounded-full flex items-center justify-center mx-auto mb-6">
             <Check className="w-10 h-10 text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-[#333] mb-2">¡Pedido realizado!</h2>
+          <h2 className="text-2xl font-bold text-[#333] mb-2">Order Placed!</h2>
           <p className="text-gray-600 mb-6">
-            Gracias por tu compra. Hemos recibido tu pedido y te contactaremos pronto.
+            Thank you for your purchase. We have received your order and will contact you soon.
           </p>
           <Button
             onClick={() => navigate('/')}
             className="w-full bg-[#1e5631] hover:bg-[#164a28] text-white font-bold"
           >
-            Volver al inicio
+            Back to Home
           </Button>
         </div>
       </div>
@@ -243,13 +244,13 @@ export function Checkout() {
             {/* Envío destacado */}
             <div className="bg-[#1e5631] text-white rounded-lg py-3 px-4 flex items-center justify-center gap-2 font-semibold">
               <Truck className="w-5 h-5 shrink-0" />
-              <span>Envío de 3 a 5 días a todo nivel nacional</span>
+              <span>Fill out the form to continue with the purchase</span>
             </div>
             {/* Review Your Order */}
             <section>
               <h2 className="text-xl font-bold text-[#333] mb-4 flex items-center gap-2">
                 <ShoppingCart className="w-6 h-6 text-[#333]" />
-                Revisa tu pedido
+                Review your order
               </h2>
               <div className="space-y-4">
                 {items.map((item) => (
@@ -269,7 +270,7 @@ export function Checkout() {
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         {item.discountPercent != null && (
                           <span className="text-xs font-bold uppercase px-1.5 py-0.5 rounded bg-[#e85d04] text-white">
-                            Oferta -{item.discountPercent}%
+                            Offer -{item.discountPercent}%
                           </span>
                         )}
                         <p className="text-sm text-gray-500">
@@ -307,7 +308,7 @@ export function Checkout() {
                         onClick={() => removeFromCart(item.product.id)}
                         className="text-red-600 text-sm font-medium mt-2 hover:underline"
                       >
-                        Quitar
+                        Remove
                       </button>
                     </div>
                     <div className="text-right flex-shrink-0">
@@ -324,12 +325,12 @@ export function Checkout() {
             <section>
               <h2 className="text-xl font-bold text-[#333] mb-4 flex items-center gap-2">
                 <Truck className="w-6 h-6 text-[#333]" />
-                Datos de envío
+                Shipping Information
               </h2>
               <div className="bg-[#f8f8f8] rounded-lg border border-gray-200 p-6 space-y-4">
                 <div>
                   <Label htmlFor="fullName" className="text-[#333] font-medium">
-                    Nombre completo
+                    Full Name
                   </Label>
                   <Input
                     id="fullName"
@@ -339,12 +340,12 @@ export function Checkout() {
                       setFormData({ ...formData, fullName: e.target.value })
                     }
                     className="mt-1.5 bg-white border-gray-200"
-                    placeholder="Ingresa tu nombre completo"
+                    placeholder="Enter your full name"
                   />
                 </div>
                 <div>
                   <Label htmlFor="email" className="text-[#333] font-medium">
-                    Correo electrónico
+                    Email
                   </Label>
                   <Input
                     id="email"
@@ -354,12 +355,12 @@ export function Checkout() {
                       setFormData({ ...formData, email: e.target.value })
                     }
                     className="mt-1.5 bg-white border-gray-200"
-                    placeholder="correo@ejemplo.com"
+                    placeholder="email@example.com"
                   />
                 </div>
                 <div>
                   <Label htmlFor="phone" className="text-[#333] font-medium">
-                    Número de teléfono
+                    Phone Number
                   </Label>
                   <Input
                     id="phone"
@@ -370,12 +371,12 @@ export function Checkout() {
                       setFormData({ ...formData, phone: e.target.value })
                     }
                     className="mt-1.5 bg-white border-gray-200"
-                    placeholder="Ej: 999 123 456"
+                    placeholder="Ex: 999 123 456"
                   />
                 </div>
                 <div>
                   <Label htmlFor="address" className="text-[#333] font-medium">
-                    Dirección de envío
+                    Shipping Address
                   </Label>
                   <Input
                     id="address"
@@ -385,7 +386,7 @@ export function Checkout() {
                       setFormData({ ...formData, address: e.target.value })
                     }
                     className="mt-1.5 bg-white border-gray-200"
-                    placeholder="Calle, número, distrito, referencia"
+                    placeholder="Street, number, district, reference"
                   />
                 </div>
               </div>
@@ -396,20 +397,20 @@ export function Checkout() {
           <div className="lg:col-span-1">
             <div className="lg:sticky lg:top-24 border border-gray-200 rounded-lg bg-[#fafafa] p-6">
               {/* Order Summary */}
-              <h2 className="text-lg font-bold text-[#333] mb-4">Resumen del pedido</h2>
+              <h2 className="text-lg font-bold text-[#333] mb-4">Order Summary</h2>
               <div className="space-y-2 mb-6">
                 <div className="flex justify-between text-sm text-gray-600">
                   <span>Subtotal</span>
                   <span className="text-[#333]">S/ {subtotal.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm text-gray-600">
-                  <span>Envío</span>
+                  <span>Shipping</span>
                   <span className="text-[#2d9d5f] font-medium">
-                    {shipping === 0 ? 'Gratis' : `S/ ${shipping.toFixed(2)}`}
+                    {shipping === 0 ? 'Free' : `S/ ${shipping.toFixed(2)}`}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm text-gray-600">
-                  <span>Impuesto (estimado)</span>
+                  <span>Tax (estimated)</span>
                   <span className="text-[#333]">S/ {taxEstimated.toFixed(2)}</span>
                 </div>
               </div>
@@ -453,20 +454,30 @@ export function Checkout() {
                 </Elements>
               ) : (
                 <div className="text-center py-4 text-gray-500">
-                  Cargando pasarela de pago...
+                  {!isFormValid ? (
+                    <div className="flex items-center gap-3 p-4 bg-amber-50 rounded-lg border border-amber-200">
+                      <div className="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <AlertCircle className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <p className="text-sm font-medium text-amber-800">
+                        Rellena el formulario para habilitar el método de pago.
+                      </p>
+                    </div>
+                  ) : (
+                    "Loading payment gateway..."
+                  )}
                 </div>
               )}
 
               <p className="text-xs text-gray-500 mt-4 text-center leading-relaxed">
-                Al hacer clic en "Pagar" o "Confirmar", aceptas nuestros Términos
-                de servicio. Pago seguro cifrado.
+                By clicking "Pay" or "Confirm", you agree to our Terms of Service. Secure encrypted payment.
               </p>
             </div>
 
             {/* Secure SSL footer */}
             <div className="flex items-center justify-center gap-2 mt-6 text-gray-500 text-sm">
               <Lock className="w-4 h-4" />
-              <span>CONEXIÓN SEGURA SSL</span>
+              <span>SECURE SSL CONNECTION</span>
             </div>
           </div>
         </div>
